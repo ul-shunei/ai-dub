@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AI Video Dub settings</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="options">
+    <h1>AI Video Dub</h1>
+    <form id="form">
+      <h2>Translation</h2>
+      <label for="preset">AI service</label>
+      <select id="preset"></select>
+
+      <label for="baseUrl">API base URL</label>
+      <input id="baseUrl" type="url" required placeholder="https://api.example.com/v1" />
+
+      <label for="apiKey">API key</label>
+      <input id="apiKey" type="password" required autocomplete="off" />
+      <p class="hint">Stored only in this browser and sent only to the API base URL above.</p>
+
+      <label for="model">Model</label>
+      <input id="model" list="models" required placeholder="Model name from your provider" />
+      <datalist id="models"></datalist>
+
+      <label for="targetLang">Dub into</label>
+      <select id="targetLang"></select>
+
+      <label class="check">
+        <input id="videoNotes" type="checkbox" />
+        Video notes: before translating, have the AI read the title, description and start of the transcript and build
+        a short summary and glossary, so names and terms stay consistent. Costs one extra request per video.
+      </label>
+
+      <h2>Voice (Azure Speech)</h2>
+      <label for="azureRegion">Region</label>
+      <input id="azureRegion" required placeholder="eastus" />
+      <p class="hint">The region of your Speech resource in the Azure portal, for example eastus or westeurope.</p>
+
+      <label for="azureKey">Key</label>
+      <input id="azureKey" type="password" required autocomplete="off" />
+      <p class="hint">"Keys and Endpoint" page of your Speech resource. Stored only in this browser.</p>
+
+      <label for="azureEndpoint">Custom endpoint (optional)</label>
+      <input id="azureEndpoint" type="url" placeholder="Leave empty to use the region" />
+      <p class="hint">
+        Usually leave this empty. The "Endpoint" shown in the Azure portal is not needed; only Azure China or a private
+        speech host needs a value here.
+      </p>
+
+      <label for="voice">Voice</label>
+      <div class="row">
+        <select id="voice"></select>
+        <button type="button" id="loadVoices">Load voices</button>
+        <button type="button" id="sample">Play sample</button>
+      </div>
+
+      <h2>Dubbing</h2>
+      <label for="speechRate">Reading speed: <span id="speechRateValue"></span></label>
+      <input id="speechRate" type="range" min="0.5" max="2" step="0.1" />
+      <p class="hint">How fast the voice reads. Every sentence is read at this same speed. Use "Play sample" to hear it.</p>
+
+      <label class="check">
+        <input id="holdVideo" type="checkbox" />
+        Pause the video briefly when the voice falls behind, so it stays in sync
+      </label>
+
+      <label for="originalVolume">Original audio while dubbing: <span id="originalVolumeValue"></span></label>
+      <input id="originalVolume" type="range" min="0" max="100" step="5" />
+
+      <label for="subtitles">Subtitles on the video</label>
+      <select id="subtitles">
+        <option value="translation">Translation</option>
+        <option value="both">Translation and original</option>
+        <option value="off">Off</option>
+      </select>
+
+      <label for="subtitlePosition">Subtitle position</label>
+      <select id="subtitlePosition">
+        <option value="top">Top of the video</option>
+        <option value="bottom">Bottom of the video</option>
+      </select>
+
+      <h2>Skip sponsors</h2>
+      <p class="hint">Jumps over sponsor segments inside videos, using times other viewers marked on SponsorBlock. Works with or without dubbing. Only a short hash prefix of the video ID is sent to sponsor.ajay.app.</p>
+      <label class="check"><input id="skipSponsor" type="checkbox" /> Sponsors</label>
+      <label class="check"><input id="skipSelfPromo" type="checkbox" /> Self-promotion (merch, Patreon, own products)</label>
+      <label class="check"><input id="skipInteraction" type="checkbox" /> Like and subscribe reminders</label>
+      <label class="check">
+        <input id="aiSponsors" type="checkbox" />
+        While dubbing, let the AI find sponsor reads when SponsorBlock has none for the video
+      </label>
+
+      <div class="actions">
+        <button type="submit" class="primary">Save</button>
+        <button type="button" id="test">Test translation</button>
+      </div>
+      <p id="status" class="status"></p>
+    </form>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

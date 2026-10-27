@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="popup">
+    <label for="lang">Dub into</label>
+    <select id="lang"></select>
+    <label for="subtitleSize">Subtitle size: <span id="subtitleSizeValue"></span></label>
+    <input id="subtitleSize" type="range" min="0.5" max="2" step="0.1" />
+    <label for="speechRate">Reading speed: <span id="speechRateValue"></span></label>
+    <input id="speechRate" type="range" min="0.5" max="2" step="0.1" />
+    <label class="check"><input id="skipSponsor" type="checkbox" /> Skip sponsors</label>
+    <button id="toggle" class="primary">Dub this video</button>
+    <p id="status" class="status"></p>
+    <div class="footer">
+      <span class="hint">Shortcut: Alt+Shift+D</span>
+      <a href="#" id="settings">Settings</a>
+    </div>
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

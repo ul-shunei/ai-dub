@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "AI Video Dub",
+  "version": "0.1.0",
+  "description": "Translates a YouTube video's captions with AI and reads them aloud with Azure Speech, in time with the video.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*", "https://sponsor.ajay.app/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["shared.js", "transcript.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Video Dub",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
+  },
+  "options_page": "options.html",
+  "commands": {
+    "toggle-dub": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Turn the dub on or off"
+    }
+  }
+}

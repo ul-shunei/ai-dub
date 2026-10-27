@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#5b21b6"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)"/>
+  <!-- play -->
+  <path d="M26 38 Q26 30 33 34 L68 56 Q74 60 68 64 L33 86 Q26 90 26 82 Z" fill="#ffffff"/>
+  <!-- voice waves -->
+  <path d="M82 46 Q91 60 82 74" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M96 36 Q111 60 96 84" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-opacity="0.72"/>
+  <!-- AI sparkle -->
+  <path d="M99 10 Q101 22 113 25 Q101 28 99 40 Q97 28 85 25 Q97 22 99 10 Z" fill="#fde68a"/>
+</svg>
