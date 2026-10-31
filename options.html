@@ -69,18 +69,15 @@
       <label for="originalVolume">Original audio while dubbing: <span id="originalVolumeValue"></span></label>
       <input id="originalVolume" type="range" min="0" max="100" step="5" />
 
-      <label for="subtitles">Subtitles on the video</label>
+      <label for="subtitles">Subtitles in the side panel</label>
       <select id="subtitles">
         <option value="translation">Translation</option>
         <option value="both">Translation and original</option>
-        <option value="off">Off</option>
       </select>
-
-      <label for="subtitlePosition">Subtitle position</label>
-      <select id="subtitlePosition">
-        <option value="top">Top of the video</option>
-        <option value="bottom">Bottom of the video</option>
-      </select>
+      <p class="hint">
+        The subtitles show in Chrome's side panel, which opens when you start dubbing. YouTube's own captions are hidden
+        while dubbing.
+      </p>
 
       <h2>Skip sponsors</h2>
       <p class="hint">Jumps over sponsor segments inside videos, using times other viewers marked on SponsorBlock. Works with or without dubbing. Only a short hash prefix of the video ID is sent to sponsor.ajay.app.</p>

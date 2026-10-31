@@ -1,43 +1,3 @@
-.ai-dub-subs {
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
-  z-index: 60;
-  max-width: 80%;
-  transform: translateX(-50%);
-  padding: 0.25em 0.6em;
-  border-radius: 4px;
-  background: rgba(8, 8, 8, 0.75);
-  color: #fff;
-  font-family: 'YouTube Noto', Roboto, Arial, sans-serif;
-  line-height: 1.35;
-  text-align: center;
-  pointer-events: none;
-  transition: bottom 0.2s;
-}
-
-/* Move up while the control bar is showing. */
-html:not(.ai-dub-top) #movie_player:not(.ytp-autohide) .ai-dub-subs {
-  bottom: max(8%, 64px);
-}
-
-html.ai-dub-top .ai-dub-subs {
-  top: 6%;
-  bottom: auto;
-}
-
-/* Keep the status badge out of the way of top subtitles. */
-html.ai-dub-top .ai-dub-badge {
-  top: auto;
-  bottom: 64px;
-}
-
-.ai-dub-src {
-  margin-top: 0.15em;
-  font-size: 0.75em;
-  opacity: 0.8;
-}
-
 .ai-dub-badge {
   position: absolute;
   top: 12px;
@@ -56,7 +16,7 @@ html.ai-dub-top .ai-dub-badge {
   background: rgba(160, 30, 20, 0.9);
 }
 
-/* Our subtitles replace YouTube's while dubbing, wherever the player puts them. */
+/* YouTube's captions are hidden while dubbing; the subtitles are in the side panel. */
 html.ai-dub-subs-on .ytp-caption-window-container,
 html.ai-dub-subs-on .caption-window {
   display: none !important;

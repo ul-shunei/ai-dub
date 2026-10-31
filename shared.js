@@ -63,13 +63,13 @@ const DEFAULT_SETTINGS = {
   aiSponsors: true,
   // YouTube's own audio level while dubbing, 0..1.
   originalVolume: 0.2,
-  // 'translation', 'both' or 'off'.
+  // Subtitles in the side panel: 'translation', or 'both' to add the original.
   subtitles: 'translation',
-  // 'top' or 'bottom' of the video.
-  subtitlePosition: 'top',
-  // Subtitle text size relative to the default (which scales with the player).
+  // Side panel text size relative to the default, SUBTITLE_SIZES.min..max.
   subtitleSize: 1,
 };
+
+const SUBTITLE_SIZES = { min: 0.7, max: 2, step: 0.1, px: 16 };
 
 // Setting key -> SponsorBlock category, with the name shown when skipping.
 const SPONSOR_CATEGORIES = [
@@ -102,4 +102,19 @@ function azureBase(settings) {
     return custom;
   }
   return `https://${settings.azureRegion.trim().toLowerCase()}.tts.speech.microsoft.com`;
+}
+
+// One line on how the dub in a tab is going, from content.js's state().
+function dubStatus(state) {
+  if (!state.onVideo) return { text: 'Open a video to use this.' };
+  if (state.error) return { text: state.error, error: true };
+  if (!state.on) return { text: '' };
+  if (state.phase === 'loading') return { text: 'Loading captions...' };
+  const from = state.track ? `From: ${state.track}. ` : '';
+  return {
+    text:
+      state.translated < state.total
+        ? `${from}Translated ${state.translated} of ${state.total} lines...`
+        : `${from}All ${state.total} lines translated.`,
+  };
 }

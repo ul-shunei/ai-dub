@@ -11,9 +11,10 @@ async function init() {
   for (const lang of LANGUAGES) $('targetLang').add(new Option(lang.name, lang.name));
 
   const settings = await getSettings();
-  for (const key of ['preset', 'baseUrl', 'apiKey', 'model', 'targetLang', 'azureRegion', 'azureKey', 'azureEndpoint', 'subtitles', 'subtitlePosition']) {
+  for (const key of ['preset', 'baseUrl', 'apiKey', 'model', 'targetLang', 'azureRegion', 'azureKey', 'azureEndpoint']) {
     $(key).value = settings[key];
   }
+  $('subtitles').value = settings.subtitles === 'both' ? 'both' : 'translation';
   $('videoNotes').checked = settings.videoNotes;
   $('holdVideo').checked = settings.holdVideo;
   for (const key of ['skipSponsor', 'skipSelfPromo', 'skipInteraction', 'aiSponsors']) $(key).checked = settings[key];
@@ -121,7 +122,6 @@ function readForm() {
     aiSponsors: $('aiSponsors').checked,
     originalVolume: Number($('originalVolume').value) / 100,
     subtitles: $('subtitles').value,
-    subtitlePosition: $('subtitlePosition').value,
   };
 }
 
