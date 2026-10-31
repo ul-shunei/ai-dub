@@ -3,7 +3,7 @@
   "name": "AI Video Dub",
   "version": "0.1.0",
   "description": "Translates a YouTube video's captions with AI and reads them aloud with Azure Speech, in time with the video.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "sidePanel"],
   "host_permissions": ["https://www.youtube.com/*", "https://sponsor.ajay.app/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": {
@@ -38,6 +38,9 @@
     }
   },
   "options_page": "options.html",
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "commands": {
     "toggle-dub": {
       "suggested_key": { "default": "Alt+Shift+D" },

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AI Video Dub</title>
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body class="side">
+    <header>
+      <div class="title" id="title">AI Video Dub</div>
+      <div class="controls">
+        <button id="toggle" class="primary" type="button" title="Alt+Shift+D" disabled>Dub this video</button>
+        <label class="check"><input id="original" type="checkbox" /> Original</label>
+        <span class="size">
+          <button id="smaller" type="button" title="Smaller text">A−</button>
+          <button id="larger" type="button" title="Larger text">A+</button>
+        </span>
+      </div>
+      <p id="status" class="status"></p>
+    </header>
+    <main id="lines"></main>
+    <p id="empty" class="empty"></p>
+    <script src="shared.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

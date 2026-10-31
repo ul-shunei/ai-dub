@@ -1,0 +1,144 @@
+body.side {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  --current: rgba(37, 99, 235, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.side {
+    --current: rgba(91, 141, 239, 0.18);
+  }
+}
+
+header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.controls button {
+  margin: 0;
+  padding: 4px 10px;
+}
+
+.controls label.check {
+  align-items: center;
+  margin: 0;
+  gap: 4px;
+}
+
+/* Text size, on the right. */
+.size {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.size button {
+  padding: 4px 8px;
+}
+
+header .status {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+header .status.error {
+  color: var(--error);
+}
+
+header .status:empty {
+  display: none;
+}
+
+/* Every sentence: its time on the left, the translation on the right. */
+#lines {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0 40vh;
+  font-size: var(--text-size, 16px);
+  line-height: 1.5;
+}
+
+#lines:empty {
+  display: none;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  padding: 6px 14px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.line:hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.line.current {
+  border-left-color: var(--accent);
+  background: var(--current);
+}
+
+.line[hidden] {
+  display: none;
+}
+
+.time {
+  padding-top: 0.25em;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.src {
+  display: none;
+  grid-column: 2;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.show-original .src {
+  display: block;
+}
+
+/* Not translated yet: the original, greyed out. */
+.line.pending .tr {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.line.pending .src {
+  display: none;
+}
+
+.empty {
+  margin: 0;
+  padding: 24px 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.empty[hidden] {
+  display: none;
+}

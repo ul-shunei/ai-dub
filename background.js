@@ -9,7 +9,25 @@ class MismatchError extends Error {}
 
 // ---------- messaging ----------
 
+// Tabs that are dubbing, as their page scripts last said. Lets the shortcut
+// open the side panel only when it turns dubbing on.
+const dubbingTabs = new Set();
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Must open while the click that sent this still counts: before any await.
+  if (msg.type === 'openSidePanel') {
+    chrome.sidePanel.open({ tabId: sender.tab.id }).then(
+      () => sendResponse({ ok: true }),
+      (err) => sendResponse({ ok: false, error: err.message }),
+    );
+    return true;
+  }
+  if (msg.type === 'dubbing') {
+    if (msg.on) dubbingTabs.add(sender.tab.id);
+    else dubbingTabs.delete(sender.tab.id);
+    sendResponse({ ok: true });
+    return false;
+  }
   handle(msg, sender).then(
     (result) => sendResponse({ ok: true, result }),
     (err) => sendResponse({ ok: false, error: err?.message || String(err) }),
@@ -17,8 +35,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   return true;
 });
 
+chrome.tabs.onRemoved.addListener((tabId) => dubbingTabs.delete(tabId));
+
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'toggle-dub' && tab?.id) {
+    // The subtitles are in the side panel. It can only open right away, in
+    // answer to the key press.
+    if (!dubbingTabs.has(tab.id)) chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
     chrome.tabs.sendMessage(tab.id, { type: 'toggle' }).catch(() => {});
   }
 });

@@ -1,5 +1,6 @@
 // YouTube content script: loads the transcript, has it translated, voices
-// each sentence with Azure Speech and plays it in time with the video.
+// each sentence with Azure Speech and plays it in time with the video. The
+// subtitles show in the side panel (sidepanel.js), which this feeds.
 (() => {
   if (window.__aiDub) return;
   window.__aiDub = true;
@@ -97,6 +98,7 @@
       holding: null,
       listeners: [],
       lastPump: 0,
+      linesVersion: 0, // bumped when lines change, so the side panel gets them
     });
     settings = await getSettings();
     if (s !== session) return;
@@ -130,7 +132,8 @@
       s.readFrom = video.currentTime;
       s.phase = 'ready';
       setBadge(s, '');
-      applyPageClasses();
+      // YouTube's own captions are hidden; the subtitles are in the side panel.
+      document.documentElement.classList.add('ai-dub-subs-on');
 
       const excerpt = s.fragments.map((x) => x.text).join(' ').slice(0, 6000);
       s.summary = s.batchState.every((b) => b === 'done')
@@ -155,8 +158,7 @@
       if (s.holding && s.video.paused) s.video.play().catch(() => {});
     }
     for (const x of s.lines) if (x.audio) URL.revokeObjectURL(x.audio.url);
-    document.documentElement.classList.remove('ai-dub-subs-on', 'ai-dub-top');
-    ui.subs?.remove();
+    document.documentElement.classList.remove('ai-dub-subs-on');
     setBadge(s, '');
     renderButton();
   }
@@ -307,6 +309,7 @@
   // Batches cover consecutive fragments, so joining them keeps lines sorted.
   function rebuildLines(s) {
     s.lines = s.batchLines.flat();
+    s.linesVersion++;
   }
 
   async function loadCache(s) {
@@ -429,18 +432,15 @@
         release(s);
       }
     }
-    if (ad) return renderSubs(s, -1, 0);
+    if (ad) return;
 
     const now = performance.now();
     if (now - s.lastPump > 500) {
       s.lastPump = now;
       pumpVoice(s);
-      sizeSubs();
     }
 
     const t = video.currentTime;
-    const i = T.indexAt(s.lines, t);
-    renderSubs(s, i, t);
     if (video.paused && !s.holding) return;
 
     if (s.speaking) {
@@ -602,42 +602,6 @@
     return location.pathname === '/watch' ? new URLSearchParams(location.search).get('v') : null;
   }
 
-  function renderSubs(s, i, t) {
-    const x = i >= 0 ? s.lines[i] : null;
-    const show = settings.subtitles !== 'off' && x?.tr && t <= x.end + 1.5;
-    const host = player();
-    if (!show || !host) {
-      if (ui.subs) ui.subs.hidden = true;
-      return;
-    }
-    if (!ui.subs) {
-      ui.subs = el('div', 'ai-dub-subs');
-      ui.subTr = ui.subs.appendChild(el('div', 'ai-dub-tr'));
-      ui.subSrc = ui.subs.appendChild(el('div', 'ai-dub-src'));
-    }
-    if (ui.subs.parentNode !== host) {
-      host.appendChild(ui.subs);
-      sizeSubs();
-    }
-    ui.subs.hidden = false;
-    ui.subTr.textContent = x.tr;
-    ui.subSrc.textContent = settings.subtitles === 'both' ? x.text : '';
-    ui.subSrc.hidden = settings.subtitles !== 'both';
-  }
-
-  function applyPageClasses() {
-    const root = document.documentElement;
-    root.classList.toggle('ai-dub-subs-on', settings.subtitles !== 'off');
-    root.classList.toggle('ai-dub-top', settings.subtitlePosition === 'top');
-  }
-
-  function sizeSubs() {
-    const host = player();
-    if (!ui.subs || !host) return;
-    const base = Math.max(14, host.clientHeight * 0.042);
-    ui.subs.style.fontSize = `${Math.round(base * (settings.subtitleSize || 1))}px`;
-  }
-
   function setBadge(s, text, isError = false) {
     if (s && s !== session && session) return;
     clearTimeout(ui.badgeTimer);
@@ -662,7 +626,11 @@
       ui.button.title = 'AI dub (Alt+Shift+D)';
       ui.button.setAttribute('aria-label', 'AI dub');
       ui.button.appendChild(buttonIcon());
-      ui.button.addEventListener('click', toggle);
+      ui.button.addEventListener('click', () => {
+        // The subtitles are in the side panel, which can only open during a click.
+        if (!wanted) openSidePanel();
+        toggle();
+      });
     }
     if (ui.button.parentNode !== bar) bar.prepend(ui.button);
     ui.button.setAttribute('aria-pressed', String(wanted));
@@ -719,6 +687,7 @@
       total,
       translated: s ? s.batches.reduce((sum, [from, to], k) => sum + (s.batchState[k] === 'done' ? to - from : 0), 0) : 0,
       track: s?.track ? `${s.track.name}${s.track.kind === 'asr' ? ' (auto-generated)' : ''}` : '',
+      title: s?.title || (currentVideoId() ? document.title.replace(/^\(\d+\)\s*/, '').replace(/ - YouTube$/, '') : ''),
     };
   }
 
@@ -740,8 +709,6 @@
     if (restart && wanted) return start();
     if (REVOICE_KEYS.some((key) => key in changes)) revoice(session);
     applyVolume(session);
-    applyPageClasses();
-    sizeSubs();
   });
 
   // YouTube changes videos without reloading the page.
@@ -755,6 +722,82 @@
   }
   document.addEventListener('yt-navigate-finish', onNavigate);
   setInterval(onNavigate, 1000);
+
+  // ---------- side panel ----------
+  // sidepanel.js connects here while this tab is the active one. It shows
+  // every sentence, marks the current one and can seek the video.
+
+  const sidePorts = new Set();
+  let sideSent = { session: null, version: -1, current: -2, state: '' };
+  let toldWanted = false;
+
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'side') return;
+    sidePorts.add(port);
+    port.onDisconnect.addListener(() => sidePorts.delete(port));
+    port.onMessage.addListener((msg) => {
+      if (msg.type === 'toggle') toggle();
+      else if (msg.type === 'seek' && Number.isFinite(msg.time)) {
+        const video = session?.video || findVideo();
+        if (video) video.currentTime = msg.time;
+      }
+    });
+    syncSide(port);
+  });
+
+  // Sends the panels what changed: the dub's state, the sentences and which
+  // one is current. A panel that just connected (port) gets all of it.
+  function syncSide(port = null) {
+    if (!port && !sidePorts.size) return;
+    const s = session;
+    const st = state();
+    const stateText = JSON.stringify(st);
+    const version = s ? s.linesVersion : -1;
+    const current = s ? currentLine(s) : -1;
+    const msg = { type: 'update' };
+    if (port || stateText !== sideSent.state) msg.state = st;
+    if (port || s !== sideSent.session || version !== sideSent.version) {
+      msg.lines = s ? s.lines.map((x) => ({ start: x.start, end: x.end, text: x.text, tr: x.tr })) : [];
+    }
+    if (port || msg.lines || current !== sideSent.current) msg.current = current;
+    if (!port) sideSent = { session: s, version, current, state: stateText };
+    if (Object.keys(msg).length === 1) return;
+    for (const p of port ? [port] : sidePorts) {
+      try {
+        p.postMessage(msg);
+      } catch {
+        sidePorts.delete(p);
+      }
+    }
+  }
+
+  // The sentence being read, or while the voice is quiet the one under the
+  // playhead; -1 for none.
+  function currentLine(s) {
+    if (s.ad || !s.video) return -1;
+    const spoken = s.speaking ? s.lines.indexOf(s.speaking.x) : -1;
+    if (spoken >= 0) return spoken;
+    const t = s.video.currentTime;
+    const i = T.indexAt(s.lines, t);
+    return i >= 0 && t <= s.lines[i].end + 1.5 ? i : -1;
+  }
+
+  function openSidePanel() {
+    chrome.runtime.sendMessage({ type: 'openSidePanel' }).catch(() => {});
+  }
+
+  // background.js keeps track, so the shortcut opens the panel only when it
+  // turns dubbing on.
+  function tellWanted() {
+    if (wanted === toldWanted) return;
+    toldWanted = wanted;
+    chrome.runtime.sendMessage({ type: 'dubbing', on: wanted }).catch(() => {});
+  }
+
+  setInterval(() => {
+    tellWanted();
+    syncSide();
+  }, 250);
 
   // ---------- sponsor skipping ----------
   // Works whether or not dubbing is on. Segments come from SponsorBlock;

@@ -44,6 +44,8 @@ async function refresh() {
 }
 
 $('toggle').addEventListener('click', async () => {
+  // The subtitles are in the side panel, which can only open during the click.
+  if (!state?.on) openPanel();
   try {
     state = await chrome.tabs.sendMessage(tabId, { type: 'toggle' });
   } catch {
@@ -58,7 +60,7 @@ $('lang').addEventListener('change', async () => {
   await chrome.storage.local.set({ targetLang: $('lang').value });
 });
 
-// The YouTube tab resizes its subtitles as soon as this is saved.
+// The side panel resizes its subtitles as soon as this is saved.
 $('subtitleSize').addEventListener('input', () => {
   showSubtitleSize();
   chrome.storage.local.set({ subtitleSize: Number($('subtitleSize').value) });
@@ -83,6 +85,14 @@ function showSpeechRate() {
   $('speechRateValue').textContent = `${Number($('speechRate').value).toFixed(1)}x`;
 }
 
+$('panel').addEventListener('click', () => {
+  openPanel().then(() => window.close());
+});
+
+function openPanel() {
+  return chrome.sidePanel.open({ tabId }).catch(() => {});
+}
+
 $('settings').addEventListener('click', (event) => {
   event.preventDefault();
   chrome.runtime.openOptionsPage();
@@ -92,16 +102,8 @@ function render() {
   if (!state) return;
   $('toggle').disabled = !state.onVideo;
   $('toggle').textContent = state.on ? 'Stop dubbing' : 'Dub this video';
-  if (!state.onVideo) return setStatus('Open a video to use this.');
-  if (state.error) return setStatus(state.error, true);
-  if (!state.on) return setStatus('');
-  if (state.phase === 'loading') return setStatus('Loading captions...');
-  const from = state.track ? `From: ${state.track}. ` : '';
-  setStatus(
-    state.translated < state.total
-      ? `${from}Translated ${state.translated} of ${state.total} lines...`
-      : `${from}All ${state.total} lines translated.`,
-  );
+  const { text, error } = dubStatus(state);
+  setStatus(text, error);
 }
 
 function setStatus(text, isError = false) {

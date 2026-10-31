@@ -24,6 +24,19 @@ Open a YouTube video and do any of these:
 
 Dubbing stays on for the next video until you turn it off. The popup shows translation progress and lets you change the language.
 
+### Subtitles in the side panel
+
+The subtitles show in Chrome's side panel, not on the video, so nothing covers the picture. Starting the dub from the player button, the popup or the shortcut opens the panel. If you close it, open it again with **Show subtitles** in the popup.
+
+- Every sentence of the video is listed with its time. The sentence being read is highlighted and kept in view. While the voice is quiet, the sentence at the playhead is highlighted.
+- Click a sentence to play the video from there.
+- Sentences not translated yet show the original in grey until their translation arrives.
+- Scrolling the list by hand stops it following the voice for 5 seconds.
+- **Original** adds the original sentence under each translation. **A−** / **A+** change the text size. Both are saved.
+- **Dub this video** / **Stop dubbing** in the panel works like the player button.
+- YouTube's own captions are hidden while dubbing.
+- The panel follows the active tab. On other tabs it says to open a YouTube video.
+
 ## How it works
 
 1. **Captions.** The extension reads the video's caption list from the player. It prefers English captions (human-made, then auto-generated), then captions in the spoken language. YouTube often rejects caption downloads that lack a token the player adds itself. When that happens, the extension briefly switches the player to the chosen captions so the player fetches them, reuses that file, and puts your caption setting back. Captions YouTube auto-translated (for example if your player is set to auto-translate into another language) are never used as the source unless nothing else works.
@@ -49,9 +62,8 @@ Dubbing stays on for the next video until you turn it off. The popup shows trans
 | Reading speed (also in popup) | 1.0x | 0.5x to 2.0x. Azure generates the voice at this speed and every sentence plays at it. Changing it while dubbing remakes the voice clips, keeping the translations |
 | Pause video to stay in sync | on | |
 | Original audio while dubbing | 20% | |
-| Subtitles | Translation | Translation, translation and original, or off. YouTube's own captions are hidden while ours show |
-| Subtitle position | Top | Top or bottom of the video. Changes apply right away |
-| Subtitle size (popup) | 100% | 50% to 200% of the default size, which follows the player size. Applies right away |
+| Subtitles in the side panel (also **Original** in the panel) | Translation | Translation, or translation and original |
+| Subtitle size (popup, or **A−** / **A+** in the panel) | 100% | 70% to 200% of the panel's default 16px text. Applies right away |
 | Skip sponsors / self-promotion / subscribe reminders | on / off / off | SponsorBlock categories to jump over, with or without dubbing. Sponsors can also be toggled in the popup |
 | Let the AI find sponsor reads | on | Only while dubbing, only when SponsorBlock has no sponsor segment for the video. No extra AI requests |
 
@@ -62,9 +74,10 @@ Dubbing stays on for the next video until you turn it off. The popup shows trans
 | `manifest.json` | MV3 manifest. Content scripts run only on `www.youtube.com` |
 | `inject.js` | Runs in YouTube's page context. Records the player's caption requests, reads the caption list and downloads caption files |
 | `transcript.js` | Pure helpers: caption parsing (json3, srv3, srv1), fragment building, sentence-aware batching, track choice |
-| `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, subtitles, player button |
-| `content.css` | Subtitle, status badge and button styles |
-| `background.js` | Service worker: AI calls (with retries and batch splitting), Azure Speech synthesis and voice list, SponsorBlock lookup |
+| `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, player button. Sends the sentences and the current one to the side panel over a port |
+| `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
+| `sidepanel.*` | Side panel: connects to the active tab's `content.js` and lists the subtitles |
+| `background.js` | Service worker: AI calls (with retries and batch splitting), Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
 | `shared.js` | Languages and default voices, AI presets, default settings |
 | `popup.*`, `options.*`, `ui.css` | Toolbar popup and settings page |
 | `icons/` | `icon.svg` and the PNG sizes made from it |

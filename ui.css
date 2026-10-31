@@ -93,6 +93,11 @@ button:disabled {
   margin-top: 12px;
 }
 
+.popup button.wide {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .actions {
   display: flex;
   gap: 8px;
