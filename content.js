@@ -6,7 +6,7 @@
 
   const T = AiDubTranscript;
   const TAG = 'ai-dub';
-  const LATE = 1.5; // seconds a line may start late before it is skipped
+  const MAX_LAG = 5; // seconds the voice may run behind before the video waits
   const LOOKAHEAD = 40; // seconds of upcoming speech to synthesize ahead
   const KEEP_BEHIND = 120; // seconds of past audio kept for seeking back
   const TRANSLATE_PARALLEL = 2;
@@ -92,6 +92,7 @@
       voicing: 0,
       voiceGen: 0, // bumped when clips must be remade; older replies are dropped
       spoken: new Set(),
+      readFrom: 0, // video time from which every line is owed a reading
       speaking: null,
       holding: null,
       listeners: [],
@@ -126,6 +127,7 @@
       const video = findVideo();
       if (!video) throw new Error('Could not find the video player.');
       attachVideo(s, video);
+      s.readFrom = video.currentTime;
       s.phase = 'ready';
       setBadge(s, '');
       applyPageClasses();
@@ -253,20 +255,22 @@
       if (s !== session) return;
       setBatchLines(s, k, out.map((x) => ({ last: from + x.last, tr: x.text, ad: x.ad })));
       s.batchState[k] = 'done';
+      if (s.batchTries[k] >= 2) setBadge(s, '');
       saveCacheSoon(s);
     } catch (err) {
       if (s !== session) return;
-      if (++s.batchTries[k] < 2) {
-        s.batchState[k] = 'retry';
-        setTimeout(() => {
-          s.batchState[k] = 'idle';
-          scheduleTranslation(s);
-        }, 3000);
-      } else {
-        s.batchState[k] = 'failed';
-        for (const x of s.batchLines[k]) x.skip = true;
-        setBadge(s, `Translation failed: ${err.message}`, true);
-      }
+      // A bad key or model fails every batch, so stop instead.
+      if (/API error 40[13]|No AI API key|No model set/.test(err.message)) return fail(s, err.message);
+      // Otherwise keep trying, more slowly each time, so no sentence is left
+      // out; the video waits for it if needed.
+      const tries = ++s.batchTries[k];
+      s.batchState[k] = 'retry';
+      if (tries >= 2) setBadge(s, `Translation failed, retrying: ${err.message}`, true);
+      setTimeout(() => {
+        if (s !== session) return;
+        s.batchState[k] = 'idle';
+        scheduleTranslation(s);
+      }, Math.min(3000 * 2 ** (tries - 1), 30000));
     } finally {
       s.translating--;
       scheduleTranslation(s);
@@ -339,11 +343,12 @@
 
   function pumpVoice(s) {
     const t = s.video.currentTime;
-    const first = Math.max(0, T.indexAt(s.lines, t));
+    // Lines the voice is still behind on come first.
+    const first = Math.max(0, T.indexAt(s.lines, Math.min(t, s.readFrom)));
     for (let i = first; i < s.lines.length && s.voicing < VOICE_PARALLEL; i++) {
       const x = s.lines[i];
       if (x.start > t + LOOKAHEAD && i > first + 2) break;
-      if (x.tr && !x.audio && !x.skip && !x.voicing) voice(s, x);
+      if (x.tr && !x.audio && !x.skip && !x.voicing && !(x.retryAt > performance.now())) voice(s, x);
     }
     for (const x of s.lines) {
       if (x.audio && x.end < t - KEEP_BEHIND) {
@@ -365,12 +370,14 @@
       const duration = await audioDuration(url);
       if (s !== session || gen !== s.voiceGen) return URL.revokeObjectURL(url);
       x.audio = { url, duration };
+      if (x.retryAt) setBadge(s, '');
     } catch (err) {
       if (s !== session || gen !== s.voiceGen) return;
       // A bad key or region fails every line, so stop instead.
       if (/401|403|No Azure/.test(err.message)) return fail(s, err.message);
-      x.skip = true;
-      setBadge(s, err.message, true);
+      // Otherwise try the line again shortly; the video waits for it if needed.
+      x.retryAt = performance.now() + 5000;
+      setBadge(s, `${err.message} (retrying)`, true);
     } finally {
       x.voicing = false;
       s.voicing--;
@@ -381,7 +388,7 @@
   // The line being read starts over; lines already read stay done.
   function revoice(s) {
     s.voiceGen++;
-    if (s.speaking) s.spoken.delete(s.speaking.x);
+    if (s.speaking) unread(s, s.speaking.x);
     stopSpeech(s);
     for (const x of s.lines) {
       if (x.audio) URL.revokeObjectURL(x.audio.url);
@@ -416,6 +423,8 @@
       s.ad = ad;
       applyVolume(s);
       if (ad) {
+        // The sentence the ad cut off is read again after it.
+        if (s.speaking) unread(s, s.speaking.x);
         stopSpeech(s);
         release(s);
       }
@@ -434,46 +443,72 @@
     renderSubs(s, i, t);
     if (video.paused && !s.holding) return;
 
-    const x = i >= 0 ? s.lines[i] : null;
     if (s.speaking) {
-      // The next line is due but the voice is still talking.
-      if (settings.holdVideo && x && x.start > s.speaking.x.start && !video.paused) hold(s, 'voice');
+      // The next line is due but the voice is still talking. The video runs
+      // on until the voice is MAX_LAG behind, then waits for it.
+      const owed = owedLine(s, t);
+      if (settings.holdVideo && owed && t - owed.start > MAX_LAG && !video.paused) hold(s, 'voice');
       return;
     }
-    if (!x || s.spoken.has(x)) return release(s);
 
-    const next = s.lines[i + 1];
-    const slotEnd = next ? next.start : x.end + 1;
-    const late = t - x.start;
-    // Skip lines we reached too late, e.g. after seeking into the middle.
-    if (x.skip || (late > LATE && late > (slotEnd - x.start) / 2)) {
-      s.spoken.add(x);
-      return release(s);
+    let x = owedLine(s, t);
+    // Lines with nothing to say (an empty translation).
+    while (x?.skip) {
+      markRead(s, x);
+      x = owedLine(s, t);
     }
+    if (!x) return release(s);
+    // Once the video waits for the voice, it keeps waiting until the voice
+    // has read every line up to the paused spot.
     if (x.audio) {
       if (now < (s.blockedUntil || 0)) return;
-      release(s);
+      if (s.holding === 'loading') {
+        s.holding = 'voice';
+        setBadge(s, '');
+      }
       return play(s, x);
     }
-    if (settings.holdVideo && !video.paused) hold(s, 'loading');
+    // Still being voiced: the video waits only once it is MAX_LAG ahead.
+    if (settings.holdVideo && (s.holding || t - x.start > MAX_LAG)) hold(s, 'loading');
+  }
+
+  // The oldest line not read yet that has started and runs past readFrom,
+  // or null when the voice is caught up. After a seek this is the sentence
+  // under the playhead, read from its start.
+  function owedLine(s, t) {
+    for (let k = Math.max(0, T.indexAt(s.lines, s.readFrom)); k < s.lines.length && s.lines[k].start <= t; k++) {
+      const x = s.lines[k];
+      if (x.end > s.readFrom && !s.spoken.has(x)) return x;
+    }
+    return null;
+  }
+
+  function markRead(s, x) {
+    s.spoken.add(x);
+    s.readFrom = Math.max(s.readFrom, x.start + 0.001);
+  }
+
+  function unread(s, x) {
+    s.spoken.delete(x);
+    s.readFrom = Math.min(s.readFrom, x.start);
   }
 
   // Always plays at the reading speed it was synthesized with, so the pace
-  // stays steady. A long line holds the video instead of speeding up.
+  // stays steady. A long line lets the voice run late, up to MAX_LAG.
   function play(s, x) {
     const audio = new Audio(x.audio.url);
-    s.spoken.add(x);
+    markRead(s, x);
     s.speaking = { x, audio };
+    // tick picks the next line, or lets the video go on if it was held.
     audio.addEventListener('ended', () => {
       if (s.speaking?.audio !== audio) return;
       s.speaking = null;
-      release(s);
     });
     audio.play().catch((err) => {
       if (s.speaking?.audio !== audio) return;
       s.speaking = null;
       if (err.name === 'NotAllowedError') {
-        s.spoken.delete(x);
+        unread(s, x);
         s.blockedUntil = performance.now() + 2000;
         setBadge(s, 'Click the video once so the dub can play sound.', true);
       }
@@ -528,6 +563,7 @@
     on('seeking', () => {
       stopSpeech(s);
       s.spoken.clear();
+      s.readFrom = video.currentTime;
       release(s);
       scheduleTranslation(s);
     });

@@ -53,7 +53,7 @@ const DEFAULT_SETTINGS = {
   // Voice speed Azure synthesizes at, 0.5..2 (1 = the voice's normal pace).
   // Every sentence plays at exactly this speed.
   speechRate: 1,
-  // Pause the video while the voice catches up.
+  // Pause the video when the voice is more than 5 seconds behind.
   holdVideo: true,
   // Jump over these SponsorBlock segment types (see SPONSOR_CATEGORIES).
   skipSponsor: true,
