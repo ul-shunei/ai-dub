@@ -33,6 +33,7 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 - Sentences not translated yet show the original in grey until their translation arrives.
 - Scrolling the list by hand stops it following the voice for 5 seconds.
 - **Original** adds the original sentence under each translation. **A−** / **A+** change the text size. Both are saved.
+- The font list next to **A−** sets the subtitles' font (saved). It has fonts often used for Chinese text (思源宋体, 思源黑体, 微软雅黑, 宋体, 楷体, 仿宋, 霞鹜文楷, 仓耳今楷04 and 05); those not installed on this computer are marked "(not installed)" and can't be chosen. 仓耳今楷 comes in five weights, W01 (the thinnest) to W05 (the boldest), each its own file; the list shows each weight that is installed. **Other font...** opens the settings, where any installed font can be named. A font must be installed on the computer: a font that a site downloads for its own pages is not.
 - **Dub this video** / **Stop dubbing** in the panel works like the player button.
 - YouTube's own captions are hidden while dubbing.
 - The panel follows the active tab. On other tabs it says to open a YouTube video.
@@ -64,6 +65,7 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 | Original audio while dubbing | 20% | |
 | Subtitles in the side panel (also **Original** in the panel) | Translation | Translation, or translation and original |
 | Subtitle size (popup, or **A−** / **A+** in the panel) | 100% | 70% to 200% of the panel's default 16px text. Applies right away |
+| Subtitle font (also in the panel) | Default | A listed font (仓耳今楷 by weight, W01 the thinnest to W05 the boldest), or "Other" with the font's name as Windows or macOS lists it (like `仓耳今楷04 W03`). Only the subtitles change; the buttons keep the system font. A preview shows the font, and the page says when it isn't installed |
 | Skip sponsors / self-promotion / subscribe reminders | on / off / off | SponsorBlock categories to jump over, with or without dubbing. Sponsors can also be toggled in the popup |
 | Let the AI find sponsor reads | on | Only while dubbing, only when SponsorBlock has no sponsor segment for the video. No extra AI requests |
 
@@ -78,7 +80,7 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 | `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
 | `sidepanel.*` | Side panel: connects to the active tab's `content.js` and lists the subtitles |
 | `background.js` | Service worker: AI calls (with retries and batch splitting), Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
-| `shared.js` | Languages and default voices, AI presets, default settings |
+| `shared.js` | Languages and default voices, AI presets, default settings, side panel fonts (and whether one is installed, by comparing text widths drawn with and without it, or for a font loaded by its full name, whether it loads). 仓耳今楷's five weight files share one family name and all claim the normal weight, so by family name Chrome picks the boldest; each weight is loaded by its full name (`local()` in a `FontFace`) instead |
 | `popup.*`, `options.*`, `ui.css` | Toolbar popup and settings page |
 | `icons/` | `icon.svg` and the PNG sizes made from it |
 

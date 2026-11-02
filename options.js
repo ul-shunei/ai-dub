@@ -21,9 +21,22 @@ async function init() {
   $('speechRate').value = settings.speechRate;
   $('originalVolume').value = Math.round(settings.originalVolume * 100);
   voiceByLang = { ...settings.voiceByLang };
+  for (const f of PANEL_FONTS) $('panelFont').add(new Option(f.name, f.id));
+  $('panelFont').add(new Option('Other (type its name)', 'other'));
+  $('panelFont').value = settings.panelFont;
+  if ($('panelFont').selectedIndex < 0) $('panelFont').value = 'default';
+  $('panelFontName').value = settings.panelFontName;
+  showFont();
   updateModelList();
   updateRanges();
   renderVoices();
+  // The side panel's "Other font..." opens options.html#font.
+  if (location.hash === '#font') {
+    $('fontSection').scrollIntoView({ block: 'start' });
+    $('panelFont').value = 'other';
+    showFont();
+    $('panelFontName').focus();
+  }
 }
 
 $('preset').addEventListener('change', () => {
@@ -38,6 +51,8 @@ $('voice').addEventListener('change', () => {
   voiceByLang[$('targetLang').value] = $('voice').value;
 });
 $('speechRate').addEventListener('input', updateRanges);
+$('panelFont').addEventListener('change', showFont);
+$('panelFontName').addEventListener('input', showFont);
 $('originalVolume').addEventListener('input', updateRanges);
 
 $('form').addEventListener('submit', async (event) => {
@@ -122,7 +137,29 @@ function readForm() {
     aiSponsors: $('aiSponsors').checked,
     originalVolume: Number($('originalVolume').value) / 100,
     subtitles: $('subtitles').value,
+    panelFont: $('panelFont').value,
+    panelFontName: $('panelFontName').value.trim(),
   };
+}
+
+// ---------- subtitle font ----------
+
+let fontSeq = 0;
+
+async function showFont() {
+  const seq = ++fontSeq;
+  const other = $('panelFont').value === 'other';
+  $('panelFontNameRow').hidden = !other;
+  const { stack, installed } = await panelFontInfo({ panelFont: $('panelFont').value, panelFontName: $('panelFontName').value });
+  if (seq !== fontSeq) return;
+  $('fontPreview').style.fontFamily = stack ? `${stack}, system-ui, sans-serif` : '';
+  const preset = PANEL_FONTS.find((f) => f.id === $('panelFont').value);
+  const name = other ? $('panelFontName').value.trim() : preset?.name;
+  const size = 'The text size is changed with A− and A+ in the side panel, or in the popup.';
+  if (other && !name) $('fontHint').textContent = 'Type the font\'s name as Windows (or macOS) lists it, for example 仓耳今楷04 W03.';
+  else if (!installed) $('fontHint').textContent = `${name} is not installed on this computer, so the side panel uses the default font. Install it (a font that a website only uses on its own pages is not installed), then reopen the side panel.`;
+  else if (preset?.family) $('fontHint').textContent = `${preset.family} comes in weights from W01, the thinnest, to W05, the boldest. ${size}`;
+  else $('fontHint').textContent = size;
 }
 
 function checkAzureFields() {
