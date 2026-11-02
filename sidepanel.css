@@ -54,6 +54,12 @@ header {
   padding: 4px 8px;
 }
 
+.size select {
+  width: auto;
+  max-width: 10em;
+  padding: 3px 4px;
+}
+
 header .status {
   margin: 6px 0 0;
   color: var(--muted);
@@ -73,6 +79,7 @@ header .status:empty {
   flex: 1;
   overflow-y: auto;
   padding: 6px 0 40vh;
+  font-family: var(--text-font, inherit);
   font-size: var(--text-size, 16px);
   line-height: 1.5;
 }

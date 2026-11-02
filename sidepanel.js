@@ -203,6 +203,71 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   applySettings();
 });
 
+// ---------- font ----------
+
+// Chosen here from the fonts installed on the computer, or by name in the
+// settings ("Other font...").
+let font = { panelFont: 'default', panelFontName: '' };
+let fontSeq = 0;
+
+async function loadFont() {
+  const { panelFont, panelFontName } = await getSettings();
+  font = { panelFont, panelFontName };
+  const seq = ++fontSeq;
+  const { stack } = await panelFontInfo(font);
+  if (seq !== fontSeq) return;
+  document.body.style.setProperty('--text-font', stack ? `${stack}, system-ui, sans-serif` : 'inherit');
+  renderFonts(seq);
+}
+
+// Fonts that aren't installed are listed (so they can be installed) but
+// can't be chosen. A font that comes in weights lists the installed ones, or
+// its name once if none is.
+async function renderFonts(seq = fontSeq) {
+  const checked = await Promise.all(
+    PANEL_FONTS.map(async (f) => ({ f, ok: (await panelFontInfo({ panelFont: f.id })).installed })),
+  );
+  const custom = font.panelFontName.trim();
+  const customOk = custom && (await panelFontInfo({ panelFont: 'other', panelFontName: custom })).installed;
+  if (seq !== fontSeq) return;
+  const option = (label, value, ok) => {
+    const o = new Option(ok ? label : `${label} (not installed)`, value);
+    o.disabled = !ok && value !== font.panelFont;
+    return o;
+  };
+  const list = [];
+  const families = new Set();
+  for (const { f, ok } of checked) {
+    if (!f.family) {
+      list.push(option(f.name, f.id, ok));
+      continue;
+    }
+    if (families.has(f.family)) continue;
+    families.add(f.family);
+    const shown = checked.filter((c) => c.f.family === f.family && (c.ok || c.f.id === font.panelFont));
+    if (shown.length) list.push(...shown.map((c) => option(c.f.name, c.f.id, c.ok)));
+    else list.push(option(f.family, f.id, false));
+  }
+  if (custom) list.push(option(custom, 'other', customOk));
+  list.push(new Option('Other font...', 'more'));
+  $('font').replaceChildren(...list);
+  $('font').value = font.panelFont === 'other' && !custom ? 'default' : font.panelFont;
+  // A font no longer in the list.
+  if ($('font').selectedIndex < 0) $('font').value = 'default';
+}
+
+$('font').addEventListener('change', () => {
+  const value = $('font').value;
+  if (value !== 'more') return chrome.storage.local.set({ panelFont: value });
+  renderFonts();
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#font') });
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && ('panelFont' in changes || 'panelFontName' in changes)) loadFont();
+});
+loadFont();
+
 // ---------- helpers ----------
 
 function textEl(tag, className, text) {

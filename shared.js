@@ -67,9 +67,96 @@ const DEFAULT_SETTINGS = {
   subtitles: 'translation',
   // Side panel text size relative to the default, SUBTITLE_SIZES.min..max.
   subtitleSize: 1,
+  // The side panel's font: an id from PANEL_FONTS, or 'other' for
+  // panelFontName.
+  panelFont: 'default',
+  panelFontName: '',
 };
 
 const SUBTITLE_SIZES = { min: 0.7, max: 2, step: 0.1, px: 16 };
+
+// Fonts for the side panel's text. A font must be installed on the computer;
+// Chrome finds it by any of the family names listed (fonts register different
+// names in Chinese and English, and on Windows and Mac).
+//
+// Tsanger's 今楷 fonts come in five weights, W01 (the thinnest) to W05 (the
+// boldest), as five files that share one family name and all claim the
+// normal weight. By that family name Chrome picks the boldest, and by names
+// like "仓耳今楷04 W03" it finds only some of them, so each weight is loaded
+// by its own full name instead (local() in a FontFace, see panelFontInfo).
+// `family` groups the weights in the side panel's list.
+const TSANGER_WEIGHTS = ['W01', 'W02', 'W03', 'W04', 'W05'];
+const tsangerFonts = (n) =>
+  TSANGER_WEIGHTS.map((w) => ({
+    id: `jinkai${n}-${w.toLowerCase()}`,
+    name: `仓耳今楷${n} ${w}`,
+    family: `仓耳今楷${n}`,
+    local: [`TsangerJinKai${n}-${w}`, `仓耳今楷${n} ${w}`, `TsangerJinKai${n} ${w}`],
+  }));
+
+const PANEL_FONTS = [
+  { id: 'default', name: 'Default', stack: '' },
+  { id: 'source-han-serif', name: '思源宋体', stack: '"Source Han Serif SC", "Source Han Serif CN", "Noto Serif SC", "Noto Serif CJK SC", "思源宋体"' },
+  { id: 'source-han-sans', name: '思源黑体', stack: '"Source Han Sans SC", "Source Han Sans CN", "Noto Sans SC", "Noto Sans CJK SC", "思源黑体"' },
+  { id: 'yahei', name: '微软雅黑', stack: '"Microsoft YaHei", "微软雅黑"' },
+  { id: 'song', name: '宋体', stack: '"SimSun", "宋体", "Songti SC", "STSong"' },
+  { id: 'kai', name: '楷体', stack: '"KaiTi", "楷体", "STKaiti", "Kaiti SC"' },
+  { id: 'fangsong', name: '仿宋', stack: '"FangSong", "仿宋", "STFangsong"' },
+  { id: 'wenkai', name: '霞鹜文楷', stack: '"LXGW WenKai", "LXGW WenKai Screen", "霞鹜文楷", "霞鹜文楷 屏幕阅读版"' },
+  ...tsangerFonts('04'),
+  ...tsangerFonts('05'),
+];
+
+// The chosen font as { stack, installed }: the CSS font-family list ('' for
+// the default) and whether the font is on this computer. Fonts loaded by
+// their full names are registered in this page as "AI Dub <id>". A name
+// typed in the settings is tried as a family name and as a full name.
+async function panelFontInfo(settings) {
+  if (settings.panelFont === 'other') {
+    const name = (settings.panelFontName || '').replace(/["\\;{}]/g, '').trim();
+    if (!name) return { stack: '', installed: true };
+    const family = `AI Dub ${name}`;
+    const byFullName = await loadPanelFace(family, [name]);
+    return { stack: `"${name}", "${family}"`, installed: byFullName || fontInstalled(`"${name}"`) };
+  }
+  const preset = PANEL_FONTS.find((f) => f.id === settings.panelFont);
+  if (preset?.local) {
+    const family = `AI Dub ${preset.id}`;
+    return { stack: `"${family}"`, installed: await loadPanelFace(family, preset.local) };
+  }
+  const stack = preset?.stack || '';
+  return { stack, installed: fontInstalled(stack) };
+}
+
+// Loads an installed font by its full (or PostScript) names into this page as
+// `family`. Resolves to whether it was found.
+const panelFaces = new Map();
+function loadPanelFace(family, names) {
+  if (!panelFaces.has(family)) {
+    const face = new FontFace(family, names.map((n) => `local("${n}")`).join(', '));
+    const found = face.load().then(
+      () => (document.fonts.add(face), true),
+      () => false,
+    );
+    panelFaces.set(family, found);
+  }
+  return panelFaces.get(family);
+}
+
+// Whether a font in a font-family list is installed: text drawn with it has
+// a different width than with the generic font alone. (CSS can't tell: a
+// missing font just falls back.)
+function fontInstalled(stack) {
+  if (!stack) return true;
+  const ctx = new OffscreenCanvas(1, 1).getContext('2d');
+  const sample = '春眠不觉晓，处处闻啼鸟 The quick brown fox 0123';
+  return ['monospace', 'serif'].some((base) => {
+    ctx.font = `40px ${base}`;
+    const plain = ctx.measureText(sample).width;
+    ctx.font = `40px ${stack}, ${base}`;
+    return ctx.measureText(sample).width !== plain;
+  });
+}
 
 // Setting key -> SponsorBlock category, with the name shown when skipping.
 const SPONSOR_CATEGORIES = [

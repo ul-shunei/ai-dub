@@ -79,6 +79,15 @@
         while dubbing.
       </p>
 
+      <label id="fontSection" for="panelFont">Subtitle font</label>
+      <select id="panelFont"></select>
+      <div id="panelFontNameRow" hidden>
+        <label for="panelFontName">Font name</label>
+        <input id="panelFontName" placeholder="As installed, for example 仓耳今楷04 W03" />
+      </div>
+      <p id="fontPreview" class="font-preview">此时，我开始将部分心思转向公共事务。The quick brown fox jumps over the lazy dog.</p>
+      <p id="fontHint" class="hint"></p>
+
       <h2>Skip sponsors</h2>
       <p class="hint">Jumps over sponsor segments inside videos, using times other viewers marked on SponsorBlock. Works with or without dubbing. Only a short hash prefix of the video ID is sent to sponsor.ajay.app.</p>
       <label class="check"><input id="skipSponsor" type="checkbox" /> Sponsors</label>
