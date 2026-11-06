@@ -122,7 +122,7 @@
       rebuildLines(s);
       s.batchState = s.batches.map(() => 'idle');
       s.batchTries = s.batches.map(() => 0);
-      s.cacheKey = `dub3:${videoId}:${s.track.lang}:${s.track.kind}:${settings.targetLang}:${settings.provider}:${settings.model}`;
+      s.cacheKey = `dub4:${videoId}:${s.track.lang}:${s.track.kind}:${settings.targetLang}:${settings.provider}:${settings.model}`;
       await loadCache(s);
       if (s !== session) return;
 
