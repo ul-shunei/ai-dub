@@ -682,6 +682,7 @@
     return {
       on: wanted,
       onVideo: !!currentVideoId(),
+      videoId: currentVideoId(),
       phase: s?.phase || (lastError ? 'error' : 'off'),
       error: lastError,
       total,
@@ -728,7 +729,7 @@
   // every sentence, marks the current one and can seek the video.
 
   const sidePorts = new Set();
-  let sideSent = { session: null, version: -1, current: -2, state: '' };
+  let sideSent = { session: null, version: -1, current: -2, state: '', docs: -1 };
   let toldWanted = false;
 
   chrome.runtime.onConnect.addListener((port) => {
@@ -740,7 +741,7 @@
       else if (msg.type === 'seek' && Number.isFinite(msg.time)) {
         const video = session?.video || findVideo();
         if (video) video.currentTime = msg.time;
-      }
+      } else if (msg.type === 'doc') docRequest(msg.kind, msg.mode);
     });
     syncSide(port);
   });
@@ -760,7 +761,8 @@
       msg.lines = s ? s.lines.map((x) => ({ start: x.start, end: x.end, text: x.text, tr: x.tr })) : [];
     }
     if (port || msg.lines || current !== sideSent.current) msg.current = current;
-    if (!port) sideSent = { session: s, version, current, state: stateText };
+    if (port || docsVersion !== sideSent.docs) msg.docs = docs;
+    if (!port) sideSent = { session: s, version, current, state: stateText, docs: docsVersion };
     if (Object.keys(msg).length === 1) return;
     for (const p of port ? [port] : sidePorts) {
       try {
@@ -798,6 +800,191 @@
     tellWanted();
     syncSide();
   }, 250);
+
+  // ---------- summary and rewrite ----------
+  // The side panel's Summary and Rewrite tabs. Each is made only when its
+  // button is pressed, with or without dubbing, and written in the dub
+  // language. Kept for the last DOC_MAX videos; opening a tab shows a kept
+  // one without asking the AI.
+
+  const DOC_MAX = 30;
+  const SUMMARY_CHARS = 200000; // transcript sent for the summary, about 3.5 hours
+  const REWRITE_CHARS = 5000; // transcript per rewrite request, about 5 minutes
+  const REWRITE_PARALLEL = 2;
+  const DOC_KINDS = {
+    summary: { cache: 'summary1', index: 'summaryCacheIndex', make: makeSummary },
+    rewrite: { cache: 'rewrite1', index: 'rewriteCacheIndex', make: makeRewrite },
+  };
+  // status: 'none', 'checking' (looking for a kept one), 'idle' (none kept,
+  // waiting for the button), 'loading', 'done' or 'error'. progress:
+  // { done, total } parts while rewriting.
+  const blankDoc = () => ({ videoId: null, status: 'none', data: null, error: '', progress: null });
+  const docs = { summary: blankDoc(), rewrite: blankDoc() };
+  let docsVersion = 0; // bumped on every change so syncSide sends them
+
+  function setDoc(kind, next) {
+    docs[kind] = { ...docs[kind], ...next };
+    docsVersion++;
+  }
+
+  // mode: 'peek' shows a kept one only; 'run' makes it, or finishes one that
+  // failed part way; 'again' makes a new one.
+  async function docRequest(kind, mode) {
+    const job = DOC_KINDS[kind];
+    const videoId = currentVideoId();
+    if (!job || !videoId) return;
+    const doc = docs[kind];
+    const same = doc.videoId === videoId;
+    if (same && (mode === 'peek' || doc.status === 'checking' || doc.status === 'loading')) return;
+    if (same && mode === 'run' && doc.status === 'done') return;
+    const resume = same && mode === 'run' && doc.status === 'error' ? doc.data : null;
+    setDoc(kind, { videoId, status: mode === 'peek' ? 'checking' : 'loading', data: resume, error: '', progress: null });
+    const alive = () => docs[kind].videoId === videoId && currentVideoId() === videoId;
+    const update = (next) => alive() && setDoc(kind, next);
+    try {
+      const cfg = await getSettings();
+      const { info, track } = await videoTrack(videoId);
+      if (!track && mode === 'peek') return update({ status: 'idle' });
+      if (!track) throw new Error('This video has no captions, so there is nothing to work from.');
+      const key = `${job.cache}:${videoId}:${track.lang}:${track.kind}:${cfg.targetLang}:${cfg.provider}:${cfg.model}`;
+      const saved = mode !== 'again' && (await chrome.storage.local.get(key))[key];
+      if (saved) return update({ status: 'done', data: saved });
+      if (mode === 'peek') return update({ status: 'idle' });
+      if (!cfg.apiKey) throw new Error('Add your AI API key in the extension settings first.');
+      const fragments = await videoFragments(videoId, track);
+      const data = await job.make({ info, fragments, data: resume, update, alive });
+      if (!alive()) return;
+      update({ status: 'done', data, progress: null });
+      saveDoc(job.index, key, data);
+    } catch (err) {
+      update({ status: 'error', error: err.message, progress: null });
+    }
+  }
+
+  // The caption track the dub uses (or would use) for this video.
+  async function videoTrack(videoId) {
+    const info = await getInfo(videoId);
+    const s = session;
+    if (s?.videoId === videoId && s.track) return { info, track: s.track };
+    return { info, track: info.tracks.length ? T.pickTrack(info.tracks) : null };
+  }
+
+  // The dub's transcript when it's dubbing this video, else downloaded the
+  // same way.
+  async function videoFragments(videoId, track) {
+    // A dub starting up is downloading the captions already.
+    for (let i = 0; i < 120 && session?.videoId === videoId && session.phase === 'loading'; i++) await sleep(250);
+    const s = session;
+    if (s?.videoId === videoId && s.fragments.length) return s.fragments;
+    const fragments = T.buildFragments(T.parseCaptions(await downloadTrack(videoId, track)));
+    if (!fragments.length) throw new Error('The captions for this video are empty.');
+    return fragments;
+  }
+
+  async function makeSummary({ info, fragments }) {
+    const lines = paragraphs(fragments).map((p) => `[${clock(p.start)}] ${p.text}\n`);
+    let transcript = '';
+    let partial = false;
+    for (const line of lines) {
+      if (transcript.length + line.length > SUMMARY_CHARS) {
+        partial = true;
+        break;
+      }
+      transcript += line;
+    }
+    const result = await send('summarizeTopics', {
+      title: info.title,
+      description: info.description,
+      transcript,
+      partial,
+      duration: fragments[fragments.length - 1].end,
+    });
+    return { ...result, partial };
+  }
+
+  // The transcript in parts of up to REWRITE_CHARS, REWRITE_PARALLEL at a
+  // time, each shown as soon as it's done. data: { parts: [[{ start, text }]
+  // or null] }; a run that failed part way keeps its finished parts.
+  async function makeRewrite({ info, fragments, data, update, alive }) {
+    const chunks = rewriteChunks(fragments);
+    const parts = data?.parts?.length === chunks.length ? [...data.parts] : chunks.map(() => null);
+    const todo = chunks.map((c, k) => k).filter((k) => !parts[k]);
+    const show = () =>
+      update({ data: { parts: [...parts] }, progress: { done: parts.filter(Boolean).length, total: chunks.length } });
+    show();
+    let failure = null;
+    const worker = async () => {
+      while (todo.length && !failure && alive()) {
+        const k = todo.shift();
+        try {
+          parts[k] = await rewritePart(info, chunks, k);
+          show();
+        } catch (err) {
+          failure = err;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: REWRITE_PARALLEL }, worker));
+    if (failure) throw failure;
+    return { parts };
+  }
+
+  async function rewritePart(info, chunks, k) {
+    const c = chunks[k];
+    const req = { title: info.title, text: c.text, before: chunks[k - 1]?.tail || '', start: c.start, end: c.end };
+    try {
+      return await send('rewriteText', req);
+    } catch (err) {
+      if (/API error 40[13]|No AI API key|No model set/.test(err.message)) throw err;
+      return send('rewriteText', req); // once more
+    }
+  }
+
+  // Parts of whole paragraphs, each with its "[m:ss] text" lines and the end
+  // of its text as context for the next part.
+  function rewriteChunks(fragments) {
+    const chunks = [];
+    let chunk = null;
+    for (const p of paragraphs(fragments)) {
+      const line = `[${clock(p.start)}] ${p.text}\n`;
+      if (!chunk || (chunk.text.length + line.length > REWRITE_CHARS && chunk.text)) {
+        chunk = { start: p.start, end: p.end, text: '', plain: '' };
+        chunks.push(chunk);
+      }
+      chunk.text += line;
+      chunk.plain = T.join(chunk.plain, p.text);
+      chunk.end = p.end;
+    }
+    return chunks.map(({ plain, ...c }) => ({ ...c, tail: plain.slice(-600) }));
+  }
+
+  // The transcript as paragraphs of about 30 seconds.
+  function paragraphs(fragments) {
+    const out = [];
+    let para = null;
+    for (const f of fragments) {
+      if (!para || f.start - para.start >= 30) out.push((para = { start: f.start, end: f.end, text: '' }));
+      para.text = T.join(para.text, f.text);
+      para.end = f.end;
+    }
+    return out;
+  }
+
+  async function saveDoc(indexKey, key, value) {
+    const index = ((await chrome.storage.local.get(indexKey))[indexKey] || []).filter((k) => k !== key);
+    index.push(key);
+    const dropped = index.splice(0, Math.max(0, index.length - DOC_MAX));
+    if (dropped.length) await chrome.storage.local.remove(dropped);
+    await chrome.storage.local.set({ [indexKey]: index, [key]: value });
+  }
+
+  function clock(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const pad = (n) => String(n).padStart(2, '0');
+    return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
+  }
 
   // ---------- sponsor skipping ----------
   // Works whether or not dubbing is on. Segments come from SponsorBlock;
