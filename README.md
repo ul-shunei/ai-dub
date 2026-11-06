@@ -38,6 +38,30 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 - YouTube's own captions are hidden while dubbing.
 - The panel follows the active tab. On other tabs it says to open a YouTube video.
 
+### Summary and Rewrite tabs
+
+Next to **Subtitles**, the side panel has two more tabs. Both are written in the dub language and work whether or not you are dubbing. Neither asks the AI until you press its button.
+
+**Summary** lists the video's main points.
+
+- Press **Summarize**. It takes one AI request, up to about a minute.
+- A video about one subject gets one topic. A video that covers several (a news roundup, a Q&A, a podcast) is split into topics, in order. Intros, outros and sponsor reads are left out.
+- A one- or two-sentence overview comes first. Each topic then shows its start time, a title and 2 to 6 key points. Click a topic's title to play the video from there.
+- Very long videos (over about 3.5 hours) are summarized from their first part only, and the tab says so.
+
+**Rewrite** turns the subtitles into text that reads like an article.
+
+- Press **Rewrite**. The video is rewritten in parts of about 5 minutes (one AI request each, two at a time). Each part shows as soon as it's done, and the bar shows how many are done.
+- The meaning is kept: every point, fact, number, name and example stays, nothing is added or summarized. Filler words, hesitations, repetition, false starts and needless particles are removed, and the sentences are grouped into paragraphs. Sponsor reads and "like and subscribe" reminders are left out.
+- Each paragraph shows the time it starts at. Click the time to play the video from there.
+- If a part fails, the finished parts stay; **Try again** does only the missing ones.
+
+For both:
+
+- Each is kept for the last 30 videos. Opening the tab again shows the kept one without asking the AI. **Summarize again** / **Rewrite again** makes a new one.
+- **Copy** copies the text (the summary with its times and points, or the rewritten paragraphs).
+- The tab you were on is remembered. The font and text size are the same as the subtitles'.
+
 ## How it works
 
 1. **Captions.** The extension reads the video's caption list from the player. It prefers English captions (human-made, then auto-generated), then captions in the spoken language. YouTube often rejects caption downloads that lack a token the player adds itself. When that happens, the extension briefly switches the player to the chosen captions so the player fetches them, reuses that file, and puts your caption setting back. Captions YouTube auto-translated (for example if your player is set to auto-translate into another language) are never used as the source unless nothing else works.
@@ -76,10 +100,10 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 | `manifest.json` | MV3 manifest. Content scripts run only on `www.youtube.com` |
 | `inject.js` | Runs in YouTube's page context. Records the player's caption requests, reads the caption list and downloads caption files |
 | `transcript.js` | Pure helpers: caption parsing (json3, srv3, srv1), fragment building, sentence-aware batching, track choice |
-| `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, player button. Sends the sentences and the current one to the side panel over a port |
+| `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, player button. Sends the sentences and the current one to the side panel over a port. Also makes and keeps the summary and rewrite when the panel asks |
 | `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
-| `sidepanel.*` | Side panel: connects to the active tab's `content.js` and lists the subtitles |
-| `background.js` | Service worker: AI calls (with retries and batch splitting), Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
+| `sidepanel.*` | Side panel: connects to the active tab's `content.js`; Subtitles, Summary and Rewrite tabs |
+| `background.js` | Service worker: AI calls (with retries and batch splitting), the topic summary and rewrite, Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
 | `shared.js` | Languages and default voices, AI presets, default settings, side panel fonts (and whether one is installed, by comparing text widths drawn with and without it, or for a font loaded by its full name, whether it loads). 仓耳今楷's five weight files share one family name and all claim the normal weight, so by family name Chrome picks the boldest; each weight is loaded by its full name (`local()` in a `FontFace`) instead |
 | `popup.*`, `options.*`, `ui.css` | Toolbar popup and settings page |
 | `icons/` | `icon.svg` and the PNG sizes made from it |

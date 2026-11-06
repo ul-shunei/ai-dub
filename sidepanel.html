@@ -12,7 +12,7 @@
       <div class="title" id="title">AI Video Dub</div>
       <div class="controls">
         <button id="toggle" class="primary" type="button" title="Alt+Shift+D" disabled>Dub this video</button>
-        <label class="check"><input id="original" type="checkbox" /> Original</label>
+        <label class="check" id="original-label"><input id="original" type="checkbox" /> Original</label>
         <span class="size">
           <select id="font" title="Font of the subtitles"></select>
           <button id="smaller" type="button" title="Smaller text">A−</button>
@@ -20,9 +20,34 @@
         </span>
       </div>
       <p id="status" class="status"></p>
+      <nav class="tabs" role="tablist">
+        <button id="tab-subs" class="tab" type="button" role="tab" data-tab="subs">Subtitles</button>
+        <button id="tab-summary" class="tab" type="button" role="tab" data-tab="summary">Summary</button>
+        <button id="tab-rewrite" class="tab" type="button" role="tab" data-tab="rewrite">Rewrite</button>
+      </nav>
     </header>
-    <main id="lines"></main>
-    <p id="empty" class="empty"></p>
+    <div id="pane-subs" class="pane" role="tabpanel">
+      <main id="lines"></main>
+      <p id="empty" class="empty"></p>
+    </div>
+    <div id="pane-summary" class="pane doc" role="tabpanel" hidden>
+      <div id="summary-bar" class="doc-bar">
+        <span id="summary-status" class="doc-status"></span>
+        <button id="summary-copy" type="button">Copy</button>
+        <button id="summary-run" type="button"></button>
+      </div>
+      <div id="summary-body" class="doc-body"></div>
+      <p id="summary-empty" class="empty"></p>
+    </div>
+    <div id="pane-rewrite" class="pane doc" role="tabpanel" hidden>
+      <div id="rewrite-bar" class="doc-bar">
+        <span id="rewrite-status" class="doc-status"></span>
+        <button id="rewrite-copy" type="button">Copy</button>
+        <button id="rewrite-run" type="button"></button>
+      </div>
+      <div id="rewrite-body" class="doc-body"></div>
+      <p id="rewrite-empty" class="empty"></p>
+    </div>
     <script src="shared.js"></script>
     <script src="sidepanel.js"></script>
   </body>

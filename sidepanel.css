@@ -149,3 +149,171 @@ header .status:empty {
 .empty[hidden] {
   display: none;
 }
+
+/* Some elements here set display, which would undo [hidden]. */
+body.side [hidden] {
+  display: none !important;
+}
+
+/* Subtitles / Summary tabs, along the bottom edge of the header. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px -14px -10px;
+  padding: 0 10px;
+}
+
+.tabs .tab {
+  margin: 0 0 -1px;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+.tabs .tab[aria-selected='true'] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Summary and Rewrite: a bar with the buttons and progress on top, then
+   the text, in the subtitles' font and size. */
+.pane.doc {
+  display: block;
+  overflow-y: auto;
+  font-family: var(--text-font, inherit);
+  font-size: var(--text-size, 16px);
+  line-height: 1.5;
+}
+
+.doc-bar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.doc-bar button {
+  margin: 0;
+  padding: 4px 10px;
+}
+
+.doc-status {
+  flex: 1 1 100%;
+  color: var(--muted);
+}
+
+.doc-status:empty {
+  display: none;
+}
+
+.doc-status.error {
+  color: var(--error);
+}
+
+.doc-body {
+  padding: 4px 0 40vh;
+}
+
+.doc-body:empty {
+  display: none;
+}
+
+/* Summary: an overview, then each topic with its time and key points. */
+
+.overview {
+  margin: 8px 14px 4px;
+  color: var(--muted);
+}
+
+.topic {
+  padding: 6px 0 4px;
+}
+
+.topic-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  width: 100%;
+  padding: 6px 14px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
+.topic-head:hover {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.topic-title {
+  font-weight: 600;
+}
+
+.topic ul {
+  margin: 2px 14px 0 0;
+  padding-left: 3.6em;
+}
+
+.topic li {
+  margin: 4px 0;
+}
+
+.note {
+  margin: 12px 14px;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+/* Rewrite: paragraphs, each with the time it starts at on the left. */
+.para {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  padding: 4px 14px;
+}
+
+.para p {
+  margin: 0 0 0.5em;
+}
+
+.para .time {
+  align-self: start;
+  margin: 0;
+  padding: 0.25em 0 0;
+  border: 0;
+  background: none;
+  font-family: system-ui, sans-serif;
+}
+
+.para .time:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.para-pending {
+  margin: 4px 14px 12px;
+  color: var(--muted);
+  font-style: italic;
+}

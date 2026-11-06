@@ -1,7 +1,9 @@
 // The dub's subtitles for the active tab: every sentence of the video, with
 // the one being read marked and kept in view. Clicking a sentence plays the
-// video from there. content.js in the YouTube tab does the work; this
-// connects to it and follows the active tab.
+// video from there. The Summary tab shows the video's topics and their key
+// points, and the Rewrite tab the subtitles as readable paragraphs, each made
+// when its button is pressed. content.js in the YouTube tab does the work;
+// this connects to it and follows the active tab.
 const $ = (id) => document.getElementById(id);
 const FOLLOW_PAUSE = 5000; // ms the list stays put after the user scrolls it
 
@@ -12,12 +14,16 @@ let lines = []; // [{ start, end, text, tr }]; tr is null until translated
 let current = -1;
 let settings = { ...DEFAULT_SETTINGS };
 let userScrolledAt = 0;
+let docs = {}; // 'summary' / 'rewrite' -> { videoId, status, data, error, progress } from content.js
+let peeked = {}; // kind -> video ID content.js was last asked about
+let tab = savedTab();
 
 init();
 
 async function init() {
   settings = await getSettings();
   applySettings();
+  showTab(tab);
   attach();
 }
 
@@ -44,6 +50,8 @@ function connect(id) {
     state = null;
     lines = [];
     current = -1;
+    docs = {};
+    peeked = {};
     $('lines').replaceChildren();
     render();
   });
@@ -54,6 +62,7 @@ function onMessage(msg) {
   if (msg.state) state = msg.state;
   if (msg.lines) renderLines(msg.lines);
   if ('current' in msg) setCurrent(msg.current);
+  if (msg.docs) docs = msg.docs;
   render();
 }
 
@@ -79,9 +88,41 @@ function render() {
   else if (!lines.length) empty = 'Loading captions...';
   $('empty').textContent = empty;
   $('empty').hidden = !empty;
+  renderDocs();
+  peekDoc();
 }
 
 $('toggle').addEventListener('click', () => send({ type: 'toggle' }));
+
+// ---------- tabs ----------
+
+function savedTab() {
+  try {
+    const saved = localStorage.getItem('panelTab');
+    return ['summary', 'rewrite'].includes(saved) ? saved : 'subs';
+  } catch {
+    return 'subs';
+  }
+}
+
+function showTab(name) {
+  tab = name;
+  try {
+    localStorage.setItem('panelTab', name);
+  } catch {}
+  for (const button of document.querySelectorAll('.tab')) {
+    button.setAttribute('aria-selected', String(button.dataset.tab === name));
+  }
+  for (const pane of document.querySelectorAll('.pane')) pane.hidden = pane.id !== `pane-${name}`;
+  // "Original" is about the subtitles only.
+  $('original-label').hidden = name !== 'subs';
+  if (name === 'subs') showCurrent();
+  peekDoc();
+}
+
+for (const button of document.querySelectorAll('.tab')) {
+  button.addEventListener('click', () => showTab(button.dataset.tab));
+}
 
 // ---------- sentences ----------
 
@@ -168,6 +209,141 @@ window.addEventListener('resize', () => showCurrent());
 window.addEventListener('keydown', (event) => {
   if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) userScrolledAt = Date.now();
 });
+
+// ---------- summary and rewrite ----------
+
+// Each is made only when its button is pressed. Opening its tab asks
+// content.js once per video whether one is kept from before.
+const DOC_TEXT = {
+  summary: {
+    run: 'Summarize',
+    again: 'Summarize again',
+    intro: "Summarize this video: its topics and the key points of each. One AI request, up to a minute.",
+    busy: 'Summarizing. This can take up to a minute...',
+    none: 'Open a YouTube video to summarize it.',
+  },
+  rewrite: {
+    run: 'Rewrite',
+    again: 'Rewrite again',
+    intro: 'Rewrite the subtitles as readable paragraphs: the same meaning, without filler words, repetition and false starts. One AI request per 5 minutes of video or so.',
+    busy: 'Rewriting...',
+    none: 'Open a YouTube video to rewrite its subtitles.',
+  },
+};
+const shownDocs = {}; // kind -> the doc whose content is showing
+
+function peekDoc() {
+  if (!(tab in DOC_TEXT) || !port || !state?.onVideo) return;
+  if (docs[tab]?.videoId === state.videoId || peeked[tab] === state.videoId) return;
+  peeked[tab] = state.videoId;
+  send({ type: 'doc', kind: tab, mode: 'peek' });
+}
+
+// This video's doc of a kind, or null.
+function docFor(kind) {
+  const videoId = state?.onVideo ? state.videoId : null;
+  return videoId && docs[kind]?.videoId === videoId ? docs[kind] : null;
+}
+
+function renderDocs() {
+  for (const kind of Object.keys(DOC_TEXT)) renderDoc(kind);
+}
+
+function renderDoc(kind) {
+  const t = DOC_TEXT[kind];
+  const doc = docFor(kind);
+  const status = doc?.status || 'none';
+  let note = '';
+  if (status === 'loading') note = doc.progress?.total > 1 ? `${t.busy} ${doc.progress.done} of ${doc.progress.total} parts done.` : t.busy;
+  else if (status === 'error') note = doc.error;
+  const run = $(`${kind}-run`);
+  run.hidden = !['idle', 'done', 'error'].includes(status);
+  run.textContent = status === 'done' ? t.again : status === 'error' ? 'Try again' : t.run;
+  run.classList.toggle('primary', status === 'idle');
+  $(`${kind}-copy`).hidden = status !== 'done';
+  $(`${kind}-status`).textContent = note;
+  $(`${kind}-status`).classList.toggle('error', status === 'error');
+  $(`${kind}-bar`).hidden = run.hidden && !note;
+  let empty = '';
+  if (!state?.onVideo) empty = t.none;
+  else if (status === 'idle') empty = t.intro;
+  $(`${kind}-empty`).textContent = empty;
+  $(`${kind}-empty`).hidden = !empty;
+  const shown = shownDocs[kind];
+  if (doc === shown) return;
+  shownDocs[kind] = doc;
+  const data = doc && ['loading', 'done', 'error'].includes(status) ? doc.data : null;
+  $(`${kind}-body`).replaceChildren(...(data ? (kind === 'summary' ? summaryNodes(data) : rewriteNodes(data, status)) : []));
+  if (doc?.videoId !== shown?.videoId) $(`pane-${kind}`).scrollTop = 0;
+}
+
+for (const kind of Object.keys(DOC_TEXT)) {
+  $(`${kind}-run`).addEventListener('click', () => {
+    const doc = docFor(kind);
+    send({ type: 'doc', kind, mode: doc?.status === 'done' ? 'again' : 'run' });
+  });
+  $(`${kind}-copy`).addEventListener('click', async () => {
+    const doc = docFor(kind);
+    if (doc?.status !== 'done') return;
+    const button = $(`${kind}-copy`);
+    try {
+      await navigator.clipboard.writeText(docText(kind, doc.data));
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => (button.textContent = 'Copy'), 1500);
+  });
+}
+
+function summaryNodes(data) {
+  const nodes = [];
+  if (data.overview) nodes.push(textEl('p', 'overview', data.overview));
+  for (const topic of data.topics) {
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'topic-head';
+    head.title = 'Play from here';
+    head.append(textEl('span', 'time', clock(topic.start)), textEl('span', 'topic-title', topic.title));
+    head.addEventListener('click', () => send({ type: 'seek', time: topic.start }));
+    const points = document.createElement('ul');
+    points.append(...topic.points.map((p) => textEl('li', '', p)));
+    const section = document.createElement('section');
+    section.className = 'topic';
+    section.append(head, points);
+    nodes.push(section);
+  }
+  if (data.partial) nodes.push(textEl('p', 'note', 'The video is very long, so this covers only its first part.'));
+  return nodes;
+}
+
+// Parts not done yet show as "...".
+function rewriteNodes(data, status) {
+  const nodes = [];
+  for (const part of data.parts || []) {
+    if (!part) {
+      nodes.push(textEl('p', 'para-pending', status === 'loading' ? '...' : '(not rewritten yet)'));
+      continue;
+    }
+    for (const p of part) {
+      const time = textEl('button', 'time', clock(p.start));
+      time.type = 'button';
+      time.title = 'Play from here';
+      time.addEventListener('click', () => send({ type: 'seek', time: p.start }));
+      const row = document.createElement('div');
+      row.className = 'para';
+      row.append(time, textEl('p', '', p.text));
+      nodes.push(row);
+    }
+  }
+  return nodes;
+}
+
+function docText(kind, data) {
+  if (kind === 'rewrite') return data.parts.flat().map((p) => p.text).join('\n\n');
+  const topics = data.topics.map((x) => [`${clock(x.start)} ${x.title}`, ...x.points.map((p) => `- ${p}`)].join('\n'));
+  return [data.overview, ...topics].filter(Boolean).join('\n\n');
+}
 
 // ---------- settings: original text and text size ----------
 
