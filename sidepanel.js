@@ -1,9 +1,10 @@
 // The dub's subtitles for the active tab: every sentence of the video, with
 // the one being read marked and kept in view. Clicking a sentence plays the
 // video from there. The Summary tab shows the video's topics and their key
-// points, and the Rewrite tab the subtitles as readable paragraphs, each made
-// when its button is pressed. content.js in the YouTube tab does the work;
-// this connects to it and follows the active tab.
+// points and a summary of the whole video, and the Rewrite tab the subtitles
+// as readable paragraphs, each made when its button is pressed. content.js in
+// the YouTube tab does the work; this connects to it and follows the active
+// tab.
 const $ = (id) => document.getElementById(id);
 const FOLLOW_PAUSE = 5000; // ms the list stays put after the user scrolls it
 
@@ -218,8 +219,8 @@ const DOC_TEXT = {
   summary: {
     run: 'Summarize',
     again: 'Summarize again',
-    intro: "Summarize this video: its topics and the key points of each. One AI request, up to a minute.",
-    busy: 'Summarizing. This can take up to a minute...',
+    intro: 'Summarize this video: its topics and the key points of each, then a detailed summary. One AI request, up to a minute or two.',
+    busy: 'Summarizing. This can take up to a minute or two...',
     none: 'Open a YouTube video to summarize it.',
   },
   rewrite: {
@@ -298,7 +299,6 @@ for (const kind of Object.keys(DOC_TEXT)) {
 
 function summaryNodes(data) {
   const nodes = [];
-  if (data.overview) nodes.push(textEl('p', 'overview', data.overview));
   for (const topic of data.topics) {
     const head = document.createElement('button');
     head.type = 'button';
@@ -313,8 +313,17 @@ function summaryNodes(data) {
     section.append(head, points);
     nodes.push(section);
   }
+  const paragraphs = summaryParagraphs(data);
+  if (paragraphs.length) {
+    nodes.push(textEl('h2', 'doc-heading', 'Summary'));
+    nodes.push(...paragraphs.map((p) => textEl('p', 'summary-para', p)));
+  }
   if (data.partial) nodes.push(textEl('p', 'note', 'The video is very long, so this covers only its first part.'));
   return nodes;
+}
+
+function summaryParagraphs(data) {
+  return (data.summary || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 }
 
 // Parts not done yet show as "...".
@@ -342,7 +351,9 @@ function rewriteNodes(data, status) {
 function docText(kind, data) {
   if (kind === 'rewrite') return data.parts.flat().map((p) => p.text).join('\n\n');
   const topics = data.topics.map((x) => [`${clock(x.start)} ${x.title}`, ...x.points.map((p) => `- ${p}`)].join('\n'));
-  return [data.overview, ...topics].filter(Boolean).join('\n\n');
+  const paragraphs = summaryParagraphs(data);
+  const summary = paragraphs.length ? ['Summary', ...paragraphs].join('\n\n') : '';
+  return [...topics, summary].filter(Boolean).join('\n\n');
 }
 
 // ---------- settings: original text and text size ----------

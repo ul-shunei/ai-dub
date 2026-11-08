@@ -236,12 +236,8 @@ body.side [hidden] {
   display: none;
 }
 
-/* Summary: an overview, then each topic with its time and key points. */
-
-.overview {
-  margin: 8px 14px 4px;
-  color: var(--muted);
-}
+/* Summary: each topic with its time and key points, then the summary of
+   the whole video. */
 
 .topic {
   padding: 6px 0 4px;
@@ -278,6 +274,18 @@ body.side [hidden] {
 
 .topic li {
   margin: 4px 0;
+}
+
+.doc-heading {
+  margin: 16px 14px 6px;
+  font-size: 0.85em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-para {
+  margin: 0 14px 8px;
 }
 
 .note {
