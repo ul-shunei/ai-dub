@@ -20,7 +20,7 @@
   const REVOICE_KEYS = ['speechRate'];
 
   let settings = { ...DEFAULT_SETTINGS };
-  let wanted = false; // user turned dubbing on; carries over to the next video
+  let wanted = false; // user turned dubbing on for this video
   let session = null; // state for the video being dubbed
   let lastError = '';
   const ui = {};
@@ -719,7 +719,13 @@
     if (videoId !== sponsors.videoId) loadSponsors(videoId);
     if (session && session.videoId === videoId) return;
     stop();
-    if (wanted && videoId) start();
+    // Dubbing is for the video it was turned on for: the next video is not
+    // translated until the button is pressed again.
+    if (wanted) {
+      wanted = false;
+      lastError = '';
+      renderButton();
+    }
   }
   document.addEventListener('yt-navigate-finish', onNavigate);
   setInterval(onNavigate, 1000);
