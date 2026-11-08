@@ -22,7 +22,7 @@ Open a YouTube video and do any of these:
 - open the extension popup and click **Dub this video**;
 - press **Alt+Shift+D**.
 
-Dubbing stays on for the next video until you turn it off. The popup shows translation progress and lets you change the language.
+Dubbing is for the video you turned it on for: when you move to another video it turns off, and nothing is translated until you press the button again. The popup shows translation progress and lets you change the language.
 
 ### Subtitles in the side panel
 
