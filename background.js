@@ -54,8 +54,8 @@ async function handle(msg) {
       const settings = await getSettings();
       return settings.videoNotes ? summarizeVideo(settings, msg) : '';
     }
-    case 'summarizeTopics':
-      return summarizeTopics(await getSettings(), msg);
+    case 'summarizeVideo':
+      return summarizeVideo(await getSettings(), msg);
     case 'rewriteText':
       return rewriteText(await getSettings(), msg);
     case 'sponsors':
@@ -123,13 +123,12 @@ function summarizeVideo(settings, { title, description, excerpt }) {
 
 // ---------- summary ----------
 
-// The side panel's Summary tab: the video split into its topics, each with a
-// start time and key points, then a summary of the whole video, written in
-// the dub language. transcript is "[m:ss] text" lines;
+// The side panel's Summary tab: a detailed summary of the whole video,
+// written in the dub language. transcript is the captions as paragraphs;
 // partial means it was cut short.
-async function summarizeTopics(settings, { title, description, transcript, partial, duration }) {
+async function summarizeVideo(settings, { title, description, transcript, partial }) {
   const lang = settings.targetLang;
-  const length = transcriptLength(transcript);
+  const length = textLength(transcript);
   const low = Math.max(30, Math.round(length.count * 0.1));
   const high = Math.max(50, Math.round(length.count * 0.15));
   const system = [
@@ -139,32 +138,27 @@ async function summarizeTopics(settings, { title, description, transcript, parti
   const user = [
     `Video title: ${title || '(none)'}`,
     `Video description:\n${(description || '(none)').slice(0, 1500)}`,
-    `Transcript${partial ? ' (only the first part of the video)' : ''}, with [m:ss] times:\n${transcript}`,
+    `Transcript${partial ? ' (only the first part of the video)' : ''}:\n${transcript}`,
     [
-      'Split the video into its topics, in the order they come up. A video about one subject has one topic; a video that moves between subjects (a news roundup, a Q&A, a podcast, a tutorial with several parts) has one topic per subject. Do not make topics for the intro, outro, sponsor reads or subscribe reminders.',
-      'For each topic give a short title, the time it starts (copied from the nearest [m:ss] marker) and 2 to 6 key points. Each key point is one complete sentence with the specific facts, numbers, names, steps, arguments or conclusions, not a vague line like "the speaker talks about X".',
-      `Then write a detailed summary of the whole video, from start to end in its order: what it sets out to do, its arguments and the reasons and key examples or facts behind them, what happens (for a story), and where it ends up. Leave out sponsor reads and subscribe reminders. The transcript is about ${length.count} ${length.unit} long; make the summary 10% to 15% of that, about ${low} to ${high} ${length.unit} (or as much text in ${lang}). Write it in paragraphs, one blank line ("\\n\\n") between them; no lists, headings or times.`,
-      `Write the titles, points and summary in ${lang}.`,
+      `Write a detailed summary of the whole video, from start to end in its order: what it sets out to do, its arguments and the reasons and key examples or facts behind them, what happens (for a story), and where it ends up. Leave out the intro, outro, sponsor reads and subscribe reminders. The transcript is about ${length.count} ${length.unit} long; make the summary 10% to 15% of that, about ${low} to ${high} ${length.unit} (or as much text in ${lang}). Write it in paragraphs, one blank line ("\\n\\n") between them; no lists or headings.`,
       onlyLangRule(lang),
-      'Reply with JSON only, no commentary: {"topics": [{"title": "...", "start": "m:ss", "points": ["...", "..."]}], "summary": "..."}',
+      'Reply with JSON only, no commentary: {"summary": "..."}',
     ].join('\n'),
   ].join('\n\n');
   const raw = await callModel(settings, system, user, { effort: 'medium' });
-  return parseSummary(raw, duration);
+  return parseSummary(raw);
 }
 
-// The transcript's length without its [m:ss] times: its Chinese and Japanese
-// characters, or its words for other languages, whichever it has more of
-// (both are counted in the total).
-function transcriptLength(transcript) {
-  const text = transcript.replace(/^\[[\d:]+\] /gm, '');
+// The text's length: its Chinese and Japanese characters, or its words for
+// other languages, whichever it has more of (both are counted in the total).
+function textLength(text) {
   const cjk = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu;
   const chars = (text.match(cjk) || []).length;
   const words = (text.replace(cjk, ' ').match(/[\p{L}\p{N}]+/gu) || []).length;
   return { count: chars + words, unit: chars > words ? 'characters' : 'words' };
 }
 
-function parseSummary(raw, duration) {
+function parseSummary(raw) {
   const text = raw.trim();
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -172,15 +166,9 @@ function parseSummary(raw, duration) {
   try {
     parsed = JSON.parse(text.slice(start, end + 1));
   } catch {}
-  const topics = (Array.isArray(parsed?.topics) ? parsed.topics : [])
-    .map((x) => ({
-      title: String(x?.title || '').trim(),
-      start: Math.min(Math.max(0, parseTime(x?.start)), duration || Infinity),
-      points: (Array.isArray(x?.points) ? x.points : []).map((p) => String(p).trim()).filter(Boolean),
-    }))
-    .filter((x) => x.title || x.points.length);
-  if (!topics.length) throw new Error('The AI reply had no topics. Try again.');
-  return { topics, summary: typeof parsed.summary === 'string' ? parsed.summary.trim() : '' };
+  const summary = typeof parsed?.summary === 'string' ? parsed.summary.trim() : '';
+  if (!summary) throw new Error('The AI reply had no summary. Try again.');
+  return { summary };
 }
 
 // ---------- rewrite ----------
