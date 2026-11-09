@@ -818,7 +818,7 @@
   const REWRITE_CHARS = 5000; // transcript per rewrite request, about 5 minutes
   const REWRITE_PARALLEL = 2;
   const DOC_KINDS = {
-    summary: { cache: 'summary2', index: 'summaryCacheIndex', make: makeSummary },
+    summary: { cache: 'summary3', index: 'summaryCacheIndex', make: makeSummary },
     rewrite: { cache: 'rewrite1', index: 'rewriteCacheIndex', make: makeRewrite },
   };
   // status: 'none', 'checking' (looking for a kept one), 'idle' (none kept,
@@ -888,7 +888,7 @@
   }
 
   async function makeSummary({ info, fragments }) {
-    const lines = paragraphs(fragments).map((p) => `[${clock(p.start)}] ${p.text}\n`);
+    const lines = paragraphs(fragments).map((p) => `${p.text}\n`);
     let transcript = '';
     let partial = false;
     for (const line of lines) {
@@ -898,12 +898,11 @@
       }
       transcript += line;
     }
-    const result = await send('summarizeTopics', {
+    const result = await send('summarizeVideo', {
       title: info.title,
       description: info.description,
       transcript,
       partial,
-      duration: fragments[fragments.length - 1].end,
     });
     return { ...result, partial };
   }

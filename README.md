@@ -42,12 +42,10 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 
 Next to **Subtitles**, the side panel has two more tabs. Both are written in the dub language and work whether or not you are dubbing. Neither asks the AI until you press its button.
 
-**Summary** lists the video's main points, then summarizes the whole video.
+**Summary** summarizes the whole video.
 
 - Press **Summarize**. It takes one AI request, up to a minute or two.
-- A video about one subject gets one topic. A video that covers several (a news roundup, a Q&A, a podcast) is split into topics, in order. Intros, outros and sponsor reads are left out.
-- The topics come first. Each shows its start time, a title and 2 to 6 key points. Click a topic's title to play the video from there.
-- Below them is a detailed summary of the whole video, in paragraphs, about 10% to 15% of the subtitles' length (counted in characters for Chinese and Japanese, words otherwise).
+- The summary follows the video from start to end, in paragraphs, about 10% to 15% of the subtitles' length (counted in characters for Chinese and Japanese, words otherwise). Intros, outros and sponsor reads are left out.
 - Very long videos (over about 3.5 hours) are summarized from their first part only, and the tab says so.
 
 **Rewrite** turns the subtitles into text that reads like an article.
@@ -60,7 +58,7 @@ Next to **Subtitles**, the side panel has two more tabs. Both are written in the
 For both:
 
 - Each is kept for the last 30 videos. Opening the tab again shows the kept one without asking the AI. **Summarize again** / **Rewrite again** makes a new one.
-- **Copy** copies the text (the topics with their times and points, then the summary, or the rewritten paragraphs).
+- **Copy** copies the text (the summary, or the rewritten paragraphs).
 - The tab you were on is remembered. The font and text size are the same as the subtitles'.
 
 ## How it works
@@ -104,7 +102,7 @@ For both:
 | `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, player button. Sends the sentences and the current one to the side panel over a port. Also makes and keeps the summary and rewrite when the panel asks |
 | `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
 | `sidepanel.*` | Side panel: connects to the active tab's `content.js`; Subtitles, Summary and Rewrite tabs |
-| `background.js` | Service worker: AI calls (with retries and batch splitting), the summary (topics and a summary of the whole video) and rewrite, Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
+| `background.js` | Service worker: AI calls (with retries and batch splitting), the summary of the whole video and the rewrite, Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
 | `shared.js` | Languages and default voices, AI presets, default settings, side panel fonts (and whether one is installed, by comparing text widths drawn with and without it, or for a font loaded by its full name, whether it loads). 仓耳今楷's five weight files share one family name and all claim the normal weight, so by family name Chrome picks the boldest; each weight is loaded by its full name (`local()` in a `FontFace`) instead |
 | `popup.*`, `options.*`, `ui.css` | Toolbar popup and settings page |
 | `icons/` | `icon.svg` and the PNG sizes made from it |

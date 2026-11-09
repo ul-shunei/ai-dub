@@ -236,56 +236,13 @@ body.side [hidden] {
   display: none;
 }
 
-/* Summary: each topic with its time and key points, then the summary of
-   the whole video. */
-
-.topic {
-  padding: 6px 0 4px;
-}
-
-.topic-head {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 10px;
-  width: 100%;
-  padding: 6px 14px;
-  border: 0;
-  border-left: 3px solid transparent;
-  border-radius: 0;
-  background: none;
-  font-family: inherit;
-  font-size: inherit;
-  text-align: left;
-}
-
-.topic-head:hover {
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--fg) 5%, transparent);
-}
-
-.topic-title {
-  font-weight: 600;
-}
-
-.topic ul {
-  margin: 2px 14px 0 0;
-  padding-left: 3.6em;
-}
-
-.topic li {
-  margin: 4px 0;
-}
-
-.doc-heading {
-  margin: 16px 14px 6px;
-  font-size: 0.85em;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
+/* Summary: the summary of the whole video, in paragraphs. */
 .summary-para {
-  margin: 0 14px 8px;
+  margin: 0 14px 1em;
+}
+
+.summary-para:first-child {
+  margin-top: 12px;
 }
 
 .note {
