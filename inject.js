@@ -77,6 +77,8 @@
         videoId: details?.videoId || null,
         title: details?.title || document.title,
         description: details?.shortDescription || '',
+        author: details?.author || '',
+        published: res?.microformat?.playerMicroformatRenderer?.publishDate || '',
         tracks: tracks.map((t) => ({
           lang: t.languageCode,
           kind: t.kind || '',
