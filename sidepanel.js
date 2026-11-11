@@ -77,14 +77,18 @@ function send(msg) {
 function render() {
   $('title').textContent = state?.title || 'AI Video Dub';
   $('toggle').disabled = !state?.onVideo;
-  $('toggle').textContent = state?.on ? 'Stop dubbing' : 'Dub this video';
-  $('toggle').classList.toggle('primary', !state?.on);
+  $('toggle').textContent = state?.dub ? 'Stop dubbing' : 'Dub this video';
+  $('toggle').classList.toggle('primary', !state?.dub);
+  // Translating only: the subtitles without the voice. Dubbing translates too.
+  $('translate').disabled = !state?.onVideo;
+  $('translate').hidden = !!state?.dub;
+  $('translate').textContent = state?.on ? 'Stop translating' : 'Translate';
   const { text, error } = state ? dubStatus(state) : { text: '' };
   $('status').textContent = state?.onVideo ? text : '';
   $('status').classList.toggle('error', !!error);
   let empty = '';
   if (!state?.onVideo) empty = 'Open a YouTube video. Its dubbed subtitles show here.';
-  else if (!state.on) empty = state.error ? '' : 'Click "Dub this video" to start. The subtitles show here.';
+  else if (!state.on) empty = state.error ? '' : 'Click "Translate" for translated subtitles, or "Dub this video" to hear them read too.';
   else if (!lines.length) empty = 'Loading captions...';
   $('empty').textContent = empty;
   $('empty').hidden = !empty;
@@ -93,6 +97,7 @@ function render() {
 }
 
 $('toggle').addEventListener('click', () => send({ type: 'toggle' }));
+$('translate').addEventListener('click', () => send({ type: 'translate' }));
 
 // ---------- tabs ----------
 

@@ -22,7 +22,9 @@ Open a YouTube video and do any of these:
 - open the extension popup and click **Dub this video**;
 - press **Alt+Shift+D**.
 
-Dubbing is for the video you turned it on for: when you move to another video it turns off, and nothing is translated until you press the button again. The popup shows translation progress and lets you change the language.
+To read the translated subtitles without the voice, press **Translate** in the side panel instead. It needs only the AI key, not the Azure Speech key. Pressing **Dub this video** later adds the voice from where the video is, keeping the translation done so far.
+
+Nothing is translated until you press one of these buttons. Translating and dubbing are for the video you turned them on for: when you move to another video they turn off. The popup shows translation progress and lets you change the language.
 
 ### Subtitles in the side panel
 
@@ -34,8 +36,9 @@ The subtitles show in Chrome's side panel, not on the video, so nothing covers t
 - Scrolling the list by hand stops it following the voice for 5 seconds.
 - **Original** adds the original sentence under each translation. **A−** / **A+** change the text size. Both are saved.
 - The font list next to **A−** sets the subtitles' font (saved). It has fonts often used for Chinese text (思源宋体, 思源黑体, 微软雅黑, 宋体, 楷体, 仿宋, 霞鹜文楷, 仓耳今楷04 and 05); those not installed on this computer are marked "(not installed)" and can't be chosen. 仓耳今楷 comes in five weights, W01 (the thinnest) to W05 (the boldest), each its own file; the list shows each weight that is installed. **Other font...** opens the settings, where any installed font can be named. A font must be installed on the computer: a font that a site downloads for its own pages is not.
-- **Dub this video** / **Stop dubbing** in the panel works like the player button.
-- YouTube's own captions are hidden while dubbing.
+- **Translate** / **Stop translating** translates the subtitles without the voice; YouTube's audio stays at its own volume. It is hidden while dubbing, since dubbing translates too.
+- **Dub this video** / **Stop dubbing** in the panel works like the player button. **Stop dubbing** stops the translation as well.
+- YouTube's own captions are hidden while translating or dubbing.
 - The panel follows the active tab. On other tabs it says to open a YouTube video.
 
 ### Summary and Rewrite tabs
@@ -99,7 +102,7 @@ For both:
 | `manifest.json` | MV3 manifest. Content scripts run only on `www.youtube.com` |
 | `inject.js` | Runs in YouTube's page context. Records the player's caption requests, reads the caption list and downloads caption files |
 | `transcript.js` | Pure helpers: caption parsing (json3, srv3, srv1), fragment building, sentence-aware batching, track choice |
-| `content.js` | Runs the dub: transcript, translation queue, voice prefetch, sync loop, player button. Sends the sentences and the current one to the side panel over a port. Also makes and keeps the summary and rewrite when the panel asks |
+| `content.js` | Runs the dub: transcript, translation queue, voice prefetch (only when dubbing, not for **Translate**), sync loop, player button. Sends the sentences and the current one to the side panel over a port. Also makes and keeps the summary and rewrite when the panel asks |
 | `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
 | `sidepanel.*` | Side panel: connects to the active tab's `content.js`; Subtitles, Summary and Rewrite tabs |
 | `background.js` | Service worker: AI calls (with retries and batch splitting), the summary of the whole video and the rewrite, Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
