@@ -282,3 +282,86 @@ body.side [hidden] {
   color: var(--muted);
   font-style: italic;
 }
+
+/* Adding the text to a book in Fukurou Library (library.js). */
+.library {
+  margin: 10px 14px 0;
+  font-family: system-ui, sans-serif;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.library[hidden],
+.library [hidden] {
+  display: none;
+}
+
+.library-hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+}
+
+.library-target {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.library-target .library-hint {
+  flex: 1;
+}
+
+.library-link-button {
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.library-field {
+  margin: 0 0 8px;
+  font-weight: normal;
+}
+
+.library-field span {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+}
+
+.library-check {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0 0 8px;
+  font-weight: normal;
+}
+
+.library-check input {
+  margin: 2px 0 0;
+}
+
+.library-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.library-buttons button {
+  margin: 0;
+  padding: 3px 10px;
+}
+
+.library-status {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.library-status:empty {
+  display: none;
+}
+
+.library-status.error {
+  color: var(--error);
+}
