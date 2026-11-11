@@ -45,7 +45,7 @@ async function refresh() {
 
 $('toggle').addEventListener('click', async () => {
   // The subtitles are in the side panel, which can only open during the click.
-  if (!state?.on) openPanel();
+  if (!state?.dub) openPanel();
   try {
     state = await chrome.tabs.sendMessage(tabId, { type: 'toggle' });
   } catch {
@@ -101,7 +101,7 @@ $('settings').addEventListener('click', (event) => {
 function render() {
   if (!state) return;
   $('toggle').disabled = !state.onVideo;
-  $('toggle').textContent = state.on ? 'Stop dubbing' : 'Dub this video';
+  $('toggle').textContent = state.dub ? 'Stop dubbing' : 'Dub this video';
   const { text, error } = dubStatus(state);
   setStatus(text, error);
 }

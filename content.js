@@ -1,6 +1,7 @@
-// YouTube content script: loads the transcript, has it translated, voices
-// each sentence with Azure Speech and plays it in time with the video. The
-// subtitles show in the side panel (sidepanel.js), which this feeds.
+// YouTube content script: loads the transcript, has it translated and, when
+// dubbing, voices each sentence with Azure Speech and plays it in time with
+// the video. The subtitles show in the side panel (sidepanel.js), which this
+// feeds. "Translate" makes the subtitles only; "Dub this video" adds the voice.
 (() => {
   if (window.__aiDub) return;
   window.__aiDub = true;
@@ -20,8 +21,10 @@
   const REVOICE_KEYS = ['speechRate'];
 
   let settings = { ...DEFAULT_SETTINGS };
-  let wanted = false; // user turned dubbing on for this video
-  let session = null; // state for the video being dubbed
+  // What the user turned on for this video: null, 'subs' (translated
+  // subtitles only) or 'dub' (subtitles and voice).
+  let mode = null;
+  let session = null; // state for the video being translated
   let lastError = '';
   const ui = {};
 
@@ -103,7 +106,7 @@
     settings = await getSettings();
     if (s !== session) return;
     if (!settings.apiKey) return fail(s, 'Add your AI API key in the extension settings first.');
-    if (!settings.azureKey) return fail(s, 'Add your Azure Speech key in the extension settings first.');
+    if (mode === 'dub' && !settings.azureKey) return fail(s, 'Add your Azure Speech key in the extension settings first.');
     renderButton();
     setBadge(s, 'Loading captions...');
 
@@ -165,7 +168,7 @@
 
   function fail(s, message) {
     stop();
-    wanted = false;
+    mode = null;
     showError(s, message);
   }
 
@@ -432,7 +435,7 @@
         release(s);
       }
     }
-    if (ad) return;
+    if (ad || mode !== 'dub') return;
 
     const now = performance.now();
     if (now - s.lastPump > 500) {
@@ -577,10 +580,11 @@
     applyVolume(s);
   }
 
-  // Lowers YouTube's own audio while dubbing (not during ads).
+  // Lowers YouTube's own audio while dubbing (not during ads or while only
+  // translating).
   function applyVolume(s) {
     if (s.userVolume == null) return;
-    s.ourVolume = s.ad ? s.userVolume : s.userVolume * settings.originalVolume;
+    s.ourVolume = s.ad || mode !== 'dub' ? s.userVolume : s.userVolume * settings.originalVolume;
     s.video.volume = s.ourVolume;
   }
 
@@ -628,12 +632,12 @@
       ui.button.appendChild(buttonIcon());
       ui.button.addEventListener('click', () => {
         // The subtitles are in the side panel, which can only open during a click.
-        if (!wanted) openSidePanel();
+        if (mode !== 'dub') openSidePanel();
         toggle();
       });
     }
     if (ui.button.parentNode !== bar) bar.prepend(ui.button);
-    ui.button.setAttribute('aria-pressed', String(wanted));
+    ui.button.setAttribute('aria-pressed', String(mode === 'dub'));
   }
 
   function buttonIcon() {
@@ -665,22 +669,46 @@
 
   // ---------- control ----------
 
+  // The dub button: dubs this video, or stops it all.
   function toggle() {
-    wanted = !wanted;
-    if (wanted) start();
-    else {
-      stop();
-      lastError = '';
-    }
+    return setMode(mode === 'dub' ? null : 'dub');
+  }
+
+  // The Translate button: translated subtitles only, or stops them.
+  function toggleTranslate() {
+    if (mode === 'dub') return state(); // the subtitles come with the dub
+    return setMode(mode === 'subs' ? null : 'subs');
+  }
+
+  function setMode(next) {
+    const was = mode;
+    mode = next;
+    lastError = '';
+    if (!next) stop();
+    // Dubbing a video that is translated already keeps its translation.
+    else if (was && session?.videoId === currentVideoId()) addVoice(session);
+    else start();
     renderButton();
     return state();
+  }
+
+  // Voices from where the video is now, not from where translating started.
+  function addVoice(s) {
+    if (!settings.azureKey) return fail(s, 'Add your Azure Speech key in the extension settings first.');
+    s.spoken.clear();
+    if (s.video) {
+      s.readFrom = s.video.currentTime;
+      applyVolume(s);
+    }
+    s.lastPump = 0;
   }
 
   function state() {
     const s = session;
     const total = s?.fragments.length || 0;
     return {
-      on: wanted,
+      on: !!mode, // translating
+      dub: mode === 'dub',
       onVideo: !!currentVideoId(),
       videoId: currentVideoId(),
       phase: s?.phase || (lastError ? 'error' : 'off'),
@@ -694,9 +722,10 @@
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'toggle') sendResponse(toggle());
+    else if (msg.type === 'translate') sendResponse(toggleTranslate());
     else if (msg.type === 'getState') sendResponse(state());
     else if (msg.type === 'restart') {
-      if (wanted) start();
+      if (mode) start();
       sendResponse(state());
     }
   });
@@ -707,7 +736,7 @@
     settings = await getSettings();
     if (SPONSOR_CATEGORIES.some((c) => c.key in changes)) loadSponsors(currentVideoId());
     if (!session) return;
-    if (restart && wanted) return start();
+    if (restart && mode) return start();
     if (REVOICE_KEYS.some((key) => key in changes)) revoice(session);
     applyVolume(session);
   });
@@ -719,10 +748,10 @@
     if (videoId !== sponsors.videoId) loadSponsors(videoId);
     if (session && session.videoId === videoId) return;
     stop();
-    // Dubbing is for the video it was turned on for: the next video is not
-    // translated until the button is pressed again.
-    if (wanted) {
-      wanted = false;
+    // Translating and dubbing are for the video they were turned on for: the
+    // next video is not translated until a button is pressed again.
+    if (mode) {
+      mode = null;
       lastError = '';
       renderButton();
     }
@@ -744,6 +773,7 @@
     port.onDisconnect.addListener(() => sidePorts.delete(port));
     port.onMessage.addListener((msg) => {
       if (msg.type === 'toggle') toggle();
+      else if (msg.type === 'translate') toggleTranslate();
       else if (msg.type === 'seek' && Number.isFinite(msg.time)) {
         const video = session?.video || findVideo();
         if (video) video.currentTime = msg.time;
@@ -797,9 +827,10 @@
   // background.js keeps track, so the shortcut opens the panel only when it
   // turns dubbing on.
   function tellWanted() {
-    if (wanted === toldWanted) return;
-    toldWanted = wanted;
-    chrome.runtime.sendMessage({ type: 'dubbing', on: wanted }).catch(() => {});
+    const dubbing = mode === 'dub';
+    if (dubbing === toldWanted) return;
+    toldWanted = dubbing;
+    chrome.runtime.sendMessage({ type: 'dubbing', on: dubbing }).catch(() => {});
   }
 
   setInterval(() => {
