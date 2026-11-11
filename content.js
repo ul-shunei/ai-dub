@@ -854,8 +854,9 @@
   };
   // status: 'none', 'checking' (looking for a kept one), 'idle' (none kept,
   // waiting for the button), 'loading', 'done' or 'error'. progress:
-  // { done, total } parts while rewriting.
-  const blankDoc = () => ({ videoId: null, status: 'none', data: null, error: '', progress: null });
+  // { done, total } parts while rewriting. meta: the video's details, for
+  // the rewrite's EPUB.
+  const blankDoc = () => ({ videoId: null, status: 'none', data: null, error: '', progress: null, meta: null });
   const docs = { summary: blankDoc(), rewrite: blankDoc() };
   let docsVersion = 0; // bumped on every change so syncSide sends them
 
@@ -875,7 +876,7 @@
     if (same && (mode === 'peek' || doc.status === 'checking' || doc.status === 'loading')) return;
     if (same && mode === 'run' && doc.status === 'done') return;
     const resume = same && mode === 'run' && doc.status === 'error' ? doc.data : null;
-    setDoc(kind, { videoId, status: mode === 'peek' ? 'checking' : 'loading', data: resume, error: '', progress: null });
+    setDoc(kind, { videoId, status: mode === 'peek' ? 'checking' : 'loading', data: resume, error: '', progress: null, meta: null });
     const alive = () => docs[kind].videoId === videoId && currentVideoId() === videoId;
     const update = (next) => alive() && setDoc(kind, next);
     try {
@@ -884,6 +885,7 @@
       if (!track && mode === 'peek') return update({ status: 'idle' });
       if (!track) throw new Error('This video has no captions, so there is nothing to work from.');
       const key = `${job.cache}:${videoId}:${track.lang}:${track.kind}:${cfg.targetLang}:${cfg.provider}:${cfg.model}`;
+      update({ meta: docMeta(videoId, info, track, cfg) });
       const saved = mode !== 'again' && (await chrome.storage.local.get(key))[key];
       if (saved) return update({ status: 'done', data: saved });
       if (mode === 'peek') return update({ status: 'idle' });
@@ -896,6 +898,19 @@
     } catch (err) {
       update({ status: 'error', error: err.message, progress: null });
     }
+  }
+
+  function docMeta(videoId, info, track, cfg) {
+    return {
+      title: info.title,
+      author: info.author || '',
+      published: (info.published || '').slice(0, 10),
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      videoId,
+      lang: LANGUAGES.find((l) => l.name === cfg.targetLang)?.locale || '',
+      track: `${track.name}${track.kind === 'asr' ? ' (auto-generated)' : ''}`,
+      model: cfg.model || '',
+    };
   }
 
   // The caption track the dub uses (or would use) for this video.

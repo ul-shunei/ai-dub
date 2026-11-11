@@ -1,8 +1,8 @@
 // The dub's subtitles for the active tab: every sentence of the video, with
 // the one being read marked and kept in view. Clicking a sentence plays the
 // video from there. The Summary tab shows a summary of the whole video, and
-// the Rewrite tab the subtitles as readable paragraphs, each made when its
-// button is pressed. content.js in the YouTube tab does the work; this
+// the Rewrite tab the subtitles as readable paragraphs (also as an EPUB),
+// each made when its button is pressed. content.js in the YouTube tab does the work; this
 // connects to it and follows the active tab.
 const $ = (id) => document.getElementById(id);
 const FOLLOW_PAUSE = 5000; // ms the list stays put after the user scrolls it
@@ -266,6 +266,7 @@ function renderDoc(kind) {
   run.textContent = status === 'done' ? t.again : status === 'error' ? 'Try again' : t.run;
   run.classList.toggle('primary', status === 'idle');
   $(`${kind}-copy`).hidden = status !== 'done';
+  if (kind === 'rewrite') $('rewrite-epub').hidden = status !== 'done';
   $(`${kind}-status`).textContent = note;
   $(`${kind}-status`).classList.toggle('error', status === 'error');
   $(`${kind}-bar`).hidden = run.hidden && !note;
@@ -300,6 +301,21 @@ for (const kind of Object.keys(DOC_TEXT)) {
     setTimeout(() => (button.textContent = 'Copy'), 1500);
   });
 }
+
+// The rewrite as an e-book, named after the video, with its link and details.
+$('rewrite-epub').addEventListener('click', () => {
+  const doc = docFor('rewrite');
+  if (doc?.status !== 'done') return;
+  const meta = doc.meta || { title: state?.title, url: `https://www.youtube.com/watch?v=${state?.videoId}` };
+  const title = meta.title || state?.title || 'YouTube video';
+  const blob = makeEpub({ ...meta, title, paragraphs: doc.data.parts.flat() });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = epubFileName(title);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+});
 
 function summaryNodes(data) {
   const nodes = summaryParagraphs(data).map((p) => textEl('p', 'summary-para', p));
