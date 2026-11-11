@@ -58,6 +58,7 @@ Next to **Subtitles**, the side panel has two more tabs. Both are written in the
 - Each paragraph shows the time it starts at. Click the time to play the video from there.
 - If a part fails, the finished parts stay; **Try again** does only the missing ones.
 - **Download EPUB** saves the rewrite as an e-book, named after the video (for example `My video title.epub`). The book's title is the video title. The first page lists the channel, the video link, the publish date, the captions it was made from, the date it was made and the AI model, with a note that the AI may have made mistakes. Then come the paragraphs, without their times. It opens in Apple Books, Google Play Books, Calibre and other e-book readers, and can be sent to a Kindle.
+- **Add to library** adds the rewrite to a book in [Fukurou Library](https://read.fukurou-works.jp) as a new chapter, at the end of the book, titled after the video (you can change the title). The first time, paste the book's chapter link: in Fukurou Library, open the book (or make a **New blank book**), go to **Details** and click **Make a link**. Chrome asks once for access to the library's address. The link is kept for next time; a link works for 24 hours, and **Change link** points at another book. The video's details (title, channel, publish date, link, the captions it was made from and the AI model) go along too and show in a box under the chapter title, apart from the text; untick **Add the details** to leave them out. So a series of videos can become the chapters of one book.
 
 For both:
 
@@ -106,6 +107,7 @@ For both:
 | `content.js` | Runs the dub: transcript, translation queue, voice prefetch (only when dubbing, not for **Translate**), sync loop, player button. Sends the sentences and the current one to the side panel over a port. Also makes and keeps the summary and rewrite when the panel asks |
 | `content.css` | Status badge and button styles. Hides YouTube's captions while dubbing |
 | `sidepanel.*` | Side panel: connects to the active tab's `content.js`; Subtitles, Summary and Rewrite tabs |
+| `library.js` | **Add to library**: the chapter link (kept in `chrome.storage.local`), the panel, and the request to Fukurou Library. The same file is in AI Book Reader |
 | `epub.js` | Builds the rewrite's EPUB 3 file (with an EPUB 2 table of contents) in the side panel, as an uncompressed ZIP, with no library |
 | `background.js` | Service worker: AI calls (with retries and batch splitting), the summary of the whole video and the rewrite, Azure Speech synthesis and voice list, SponsorBlock lookup, opening the side panel |
 | `shared.js` | Languages and default voices, AI presets, default settings, side panel fonts (and whether one is installed, by comparing text widths drawn with and without it, or for a font loaded by its full name, whether it loads). 仓耳今楷's five weight files share one family name and all claim the normal weight, so by family name Chrome picks the boldest; each weight is loaded by its full name (`local()` in a `FontFace`) instead |

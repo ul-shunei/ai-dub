@@ -266,7 +266,11 @@ function renderDoc(kind) {
   run.textContent = status === 'done' ? t.again : status === 'error' ? 'Try again' : t.run;
   run.classList.toggle('primary', status === 'idle');
   $(`${kind}-copy`).hidden = status !== 'done';
-  if (kind === 'rewrite') $('rewrite-epub').hidden = status !== 'done';
+  if (kind === 'rewrite') {
+    $('rewrite-epub').hidden = status !== 'done';
+    $('rewrite-library').hidden = status !== 'done';
+    if (status !== 'done') library.close();
+  }
   $(`${kind}-status`).textContent = note;
   $(`${kind}-status`).classList.toggle('error', status === 'error');
   $(`${kind}-bar`).hidden = run.hidden && !note;
@@ -278,6 +282,7 @@ function renderDoc(kind) {
   const shown = shownDocs[kind];
   if (doc === shown) return;
   shownDocs[kind] = doc;
+  if (kind === 'rewrite') library.refresh();
   const data = doc && ['loading', 'done', 'error'].includes(status) ? doc.data : null;
   $(`${kind}-body`).replaceChildren(...(data ? (kind === 'summary' ? summaryNodes(data) : rewriteNodes(data, status)) : []));
   if (doc?.videoId !== shown?.videoId) $(`pane-${kind}`).scrollTop = 0;
@@ -316,6 +321,33 @@ $('rewrite-epub').addEventListener('click', () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 });
+
+// The rewrite as a new chapter of a book in Fukurou Library, named after the video.
+const library = FukurouLibrary.panel($('library'), {
+  title: () => {
+    const doc = docFor('rewrite');
+    return doc?.meta?.title || state?.title || '';
+  },
+  paragraphs: () => {
+    const doc = docFor('rewrite');
+    return doc?.status === 'done' ? doc.data.parts.flat().filter(Boolean).map((p) => p.text) : [];
+  },
+  // The video's details, as in the EPUB's first page; the library shows them apart from the text.
+  meta: () => {
+    const doc = docFor('rewrite');
+    if (!doc) return null;
+    const m = doc.meta || { title: state?.title, url: `https://www.youtube.com/watch?v=${state?.videoId}` };
+    return {
+      Video: m.title,
+      Channel: m.author,
+      Published: m.published,
+      Link: m.url,
+      Captions: m.track,
+      'AI model': m.model,
+    };
+  },
+});
+$('rewrite-library').addEventListener('click', () => library.toggle());
 
 function summaryNodes(data) {
   const nodes = summaryParagraphs(data).map((p) => textEl('p', 'summary-para', p));
